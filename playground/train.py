@@ -36,7 +36,6 @@ logger.info(f"{len(train_dataset)} rows")
 
 from sentence_transformers import InputExample
 from tqdm.auto import tqdm  # so we see progress bar
-
 train_samples = []
 for row in tqdm(train_dataset):
     train_samples.append(InputExample(
