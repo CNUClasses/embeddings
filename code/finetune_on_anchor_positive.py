@@ -3,15 +3,6 @@ from myimports import *
 import utils as ut
 startTime = datetime.now()
 
-def get_queries_and_relevant_docs(dataset):
-    queries = dict(
-        zip(dataset["id"], dataset["anchor"])
-    )  
-    relevant_docs = {}  # Query ID to relevant documents (qid => set([relevant_cids])
-    for q_id in queries:
-        relevant_docs[q_id] = [q_id]
-    return queries, relevant_docs
-
 #what model are we using
 modelname=f"{ut.modelname.split('/')[-1]}"
 
@@ -42,8 +33,14 @@ corpus = dict(
 )  # Our corpus (cid => document)
 
 #get queries and relevant docs
-eval_queries,eval_relevant_docs=get_queries_and_relevant_docs(eval_dataset)
-test_queries, test_relevant_docs=get_queries_and_relevant_docs(test_dataset)
+# eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset)
+test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset)
+
+# drop the id column from the datasets (otherwise they will be considered as inputs
+# want only anchor and positive columns
+train_dataset = train_dataset.remove_columns(["id"])
+eval_dataset = eval_dataset.remove_columns(["id"])
+test_dataset = test_dataset.remove_columns(["id"])
 
 # 4. Define a loss function
 loss = losses.MultipleNegativesRankingLoss(model)
@@ -72,11 +69,11 @@ args = SentenceTransformerTrainingArguments(
 )
 
 # 6. Evaluaters (for eval and test datasets)
-eval_evaluator = InformationRetrievalEvaluator(
-    queries=eval_queries,
-    corpus=corpus,
-    relevant_docs=eval_relevant_docs,
-    name=modelname,)
+# eval_evaluator = InformationRetrievalEvaluator(
+#     queries=eval_queries,
+#     corpus=corpus,
+#     relevant_docs=eval_relevant_docs,
+#     name=modelname,)
 
 test_evaluator = InformationRetrievalEvaluator(
     queries=test_queries,
@@ -88,12 +85,6 @@ logger.info(f"--------- Base {modelname}_MNRL performance:")
 logger.info(test_evaluator(model))
 logger.info(f'---------')
 
-# drop the id column from the datasets (otherwise they will be considered as inputs
-# want only anchor and positive columns
-train_dataset = train_dataset.remove_columns(["id"])
-eval_dataset = eval_dataset.remove_columns(["id"])
-test_dataset = test_dataset.remove_columns(["id"])
-
 # 7. Create a trainer & train
 trainer = SentenceTransformerTrainer(
     model=model,
@@ -101,7 +92,7 @@ trainer = SentenceTransformerTrainer(
     train_dataset=train_dataset,
     eval_dataset=eval_dataset,
     loss=loss,
-    # evaluator=eval_evaluator,             #NO EVALUATOR TO SEE WHAT HAPPENS
+    # evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
 )
 trainer.train()
 
@@ -109,5 +100,7 @@ logger.info(f"--------- After pretraining {modelname}_MNRL performance:")
 logger.info(test_evaluator(model))
 logger.info(f'---------')
 
+logger.info(f"--------- Script took  {datetime.now()-startTime} to run")
+
 # 8. Save the trained model
-model.save_pretrained(f"models/{modelname}_MNRL1/final")
+# model.save_pretrained(f"models/{modelname}_MNRL1/final")

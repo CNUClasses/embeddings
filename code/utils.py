@@ -48,3 +48,25 @@ def change_col_to_list(df,col):
     df = df.add_column(col, data)
 
     return df
+
+#### training stuff#####
+def get_queries_and_relevant_docs(dataset):
+    """
+    Extracts queries and relevant documents from a dataset.
+
+    Args:
+        dataset (huggingface dataset):
+
+    Returns:
+        tuple: A tuple containing two dictionaries:
+            - queries: A dictionary mapping query IDs to query anchors.
+            - relevant_docs: A dictionary mapping query IDs to relevant documents.
+              Each query ID is associated with a list of relevant document IDs, where the first ID is the query ID itself.
+    """
+    queries = dict(
+        zip(dataset["id"], dataset["anchor"])
+    )  
+    relevant_docs = {}  # Query ID to relevant documents (qid => set([relevant_cids])
+    for q_id in queries:
+        relevant_docs[q_id] = [q_id]
+    return queries, relevant_docs

@@ -1,23 +1,33 @@
 #see https://www.pinecone.io/learn/series/nlp/fine-tune-sentence-transformers-mnr/
+
+#this is to be run on the triplet dataset created by create_triplet_dataset_using_finetuned_model.py
+
 from myimports import *
 import utils as ut
 
 startTime = datetime.now()
 
+# what model are we using
+modelname=f"{ut.modelname.split('/')[-1]}"
+
 #setup logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=f"LOG_{ut.modelname.split('/')[-1]}_triplet.log", encoding='utf-8', level=logging.DEBUG, filemode="w",)
+logging.basicConfig(filename=f"LOG_{modelname}_triplet.log", encoding='utf-8', level=logging.DEBUG, filemode="w",)
 
 # 1. Load a model to finetune with 2. (Optional) model card data
-model = SentenceTransformer(f"./models/{ut.modelname.split('/')[-1]}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+#un-finetuned
+# model = SentenceTransformer(modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+
+#if already finetuned
+model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
 # 3. Load a dataset to finetune on
-# train_df=pd.read_json('../data/trn_with_hard_negatives.json')
 train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
 eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
 test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
 #3a generate data for informationretreival evaluator
 # Convert the datasets to dictionaries
+
 corpus_dataset = concatenate_datasets([train_dataset, eval_dataset, test_dataset])
 corpus = dict(
     zip(corpus_dataset["id"], corpus_dataset["positive"])
@@ -25,10 +35,10 @@ corpus = dict(
 queries = dict(
     zip(test_dataset["id"], test_dataset["anchor"])
 )  
-# Create a mapping of relevant document (1 in our case) for each query
-relevant_docs = {}  # Query ID to relevant documents (qid => set([relevant_cids])
-for q_id in queries:
-    relevant_docs[q_id] = [q_id]
+
+#get queries and relevant docs
+# eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset)
+test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset)
 
 # drop the id column from the datasets
 train_dataset = train_dataset.remove_columns(["id"])
@@ -41,7 +51,7 @@ loss = TripletLoss(model=model)
 # 5. (Optional) Specify training arguments
 args = SentenceTransformerTrainingArguments(
     # Required parameter:
-    output_dir=f"models/{ut.modelname.split('/')[-1]}_triplet",
+    output_dir=f"models/{modelname}_triplet",
     # Optional training parameters:
     num_train_epochs=4,
     per_device_train_batch_size=ut.batch_size,
@@ -53,33 +63,31 @@ args = SentenceTransformerTrainingArguments(
     batch_sampler=BatchSamplers.NO_DUPLICATES,  # MultipleNegativesRankingLoss benefits from no duplicate samples in a batch
     # Optional tracking/debugging parameters:
     eval_strategy="steps",
-    eval_steps=100,
+    eval_steps=500,
     save_strategy="steps",
     save_steps=100,
     save_total_limit=2,
     logging_steps=100,
-    run_name=f"{ut.modelname.split('/')[-1]}_triplet",  # Will be used in W&B if `wandb` is installed
-)
-
-# 6. Evaluate the base model using InformationRetreivalEvaluator
-ir_evaluator = InformationRetrievalEvaluator(
-    queries=queries,
-    corpus=corpus,
-    relevant_docs=relevant_docs,
-    name=f"{ut.modelname.split('/')[-1]}",
+    run_name=f"{modelname}_triplet",  # Will be used in W&B if `wandb` is installed
 )
 
 # 6. (Optional) Create an evaluator & evaluate the base model
+test_evaluator = InformationRetrievalEvaluator(
+    queries=test_queries,
+    corpus=corpus,
+    relevant_docs=test_relevant_docs,
+    name=modelname,)
+
 # dev_evaluator = TripletEvaluator(
 #     anchors=test_dataset["anchor"],
 #     positives=test_dataset["positive"],
 #     negatives=test_dataset["negative"],
-#     name=f"{ut.modelname.split('/')[-1]}",
+#     name=f"{modelname}",
 # )
 
 logger.info(f'---------')
-logger.info(f"Base {ut.modelname.split('/')[-1]}_triplet performance:")
-logger.info(ir_evaluator(model))
+logger.info(f"Base {modelname}_triplet performance:")
+logger.info(test_evaluator(model))
 logger.info(f'---------')
 
 # 7. Create a trainer & train
@@ -89,31 +97,18 @@ trainer = SentenceTransformerTrainer(
     train_dataset=train_dataset,
     eval_dataset=eval_dataset,
     loss=loss,
-    evaluator=ir_evaluator,
+    # evaluator=eval_evaluator,  #dont include saves a lot of time
 )
 trainer.train()
 
-# (Optional) Evaluate the trained model on the test set
-ir_evaluator = InformationRetrievalEvaluator(
-    queries=queries,
-    corpus=corpus,
-    relevant_docs=relevant_docs,
-    name=f"{ut.modelname.split('/')[-1]}",
-)
-# test_evaluator = TripletEvaluator(
-#     anchors=test_dataset["anchor"],
-#     positives=test_dataset["positive"],
-#     negatives=test_dataset["negative"],
-#     name=f"{ut.modelname.split('/')[-1]}",
-# )
-
-logger.info(f'---------')
-logger.info(f"Trained {ut.modelname.split('/')[-1]}_triplet performance:")
-logger.info(ir_evaluator(model))
+logger.info(f"--------- After pretraining {modelname}_triplet performance:")
+logger.info(test_evaluator(model))
 logger.info(f'---------')
 
 # 8. Save the trained model
-model.save_pretrained(f"models/{ut.modelname.split('/')[-1]}_triplet/final")
+model.save_pretrained(f"models/{modelname}_triplet/final")
+
+logger.info(f"--------- Script took  {datetime.now()-startTime} to run")
 
 # 9. (Optional) Push it to the Hugging Face Hub
 # model.push_to_hub(f"{ut.modelname.split('/')[-1]}_triplet")

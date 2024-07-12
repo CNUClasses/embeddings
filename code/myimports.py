@@ -4,6 +4,7 @@ import os
 import datasets
 import logging
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 from sentence_transformers import (
@@ -19,3 +20,4 @@ from sentence_transformers.evaluation import InformationRetrievalEvaluator
 from datasets import load_dataset, concatenate_datasets
 from datasets import Dataset
 from sentence_transformers import losses
+from sentence_transformers import LoggingHandler, SentenceTransformer
