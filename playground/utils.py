@@ -6,9 +6,10 @@ import os
 from huggingface_hub import login
 login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=True)  # ADD YOUR TOKEN HERE
 
-# modelname='sentence-transformers/multi-qa-mpnet-base-dot-v1'
-# modelname='sentence-transformers/msmarco-distilbert-base-dot-prod-v3'
-modelname='BAAI/bge-base-en-v1.5'
+# modelname='sentence-transformers/multi-qa-MiniLM-L6-dot-v1' #not normalized, suitable for dot product not cosign similarity 
+modelname='sentence-transformers/multi-qa-MiniLM-L6-cos-v1'  #cosign similarity
+# modelname='sentence-transformers/msmarco-MiniLM-L6-cos-v5'
+# modelname='BAAI/bge-base-en-v1.5'
 
 import torch, gc
 def clean_up():
