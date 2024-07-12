@@ -1,15 +1,16 @@
-import torch
-import sys
-import os
+from myimports import *
 
 #hugging face login from environmental variable set in .bash_profile
 from huggingface_hub import login
 login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=True)  # ADD YOUR TOKEN HERE
 
 # modelname='sentence-transformers/multi-qa-MiniLM-L6-dot-v1' #not normalized, suitable for dot product not cosign similarity 
-modelname='sentence-transformers/multi-qa-MiniLM-L6-cos-v1'  #cosign similarity
+# modelname='sentence-transformers/multi-qa-MiniLM-L6-cos-v1'  #cosign similarity
+# batch_size=128
+
 # modelname='sentence-transformers/msmarco-MiniLM-L6-cos-v5'
-# modelname='BAAI/bge-base-en-v1.5'
+modelname='BAAI/bge-base-en-v1.5'
+batch_size=64
 
 import torch, gc
 def clean_up():
