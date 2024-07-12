@@ -32,15 +32,8 @@ model = SentenceTransformer(f"./models/{ut.modelname.split('/')[-1]}",device="cu
 # 3. Load a dataset to finetune on
 # train_df=pd.read_json('../data/trn_with_hard_negatives.json')
 train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
+eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
 test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
-# test_dataset=test_dataset.select_columns(["anchor","positive"])
-# new_column_vals = [""] * len(test_dataset)
-# test_dataset=test_dataset.add_column("negative",new_column_vals)
-
-# dataset = load_dataset("sentence-transformers/all-nli", "triplet")
-# train_dataset = dataset["train"].select(range(100_000))
-# eval_dataset = dataset["dev"]
-# test_dataset = dataset["test"]
 
 # 4. Define a loss function
 loss = TripletLoss(model=model)
@@ -82,7 +75,7 @@ trainer = SentenceTransformerTrainer(
     model=model,
     args=args,
     train_dataset=train_dataset,
-    eval_dataset=test_dataset,
+    eval_dataset=eval_dataset,
     loss=loss,
     evaluator=dev_evaluator,
 )
@@ -103,113 +96,3 @@ model.save_pretrained("models/mpnet-base-all-nli-triplet/final")
 # 9. (Optional) Push it to the Hugging Face Hub
 model.push_to_hub("mpnet-base-all-nli-triplet")
 
-
-# # from datasets import load_dataset, concatenate_datasets
-# # test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
-# # test_dataset=test_dataset.select_columns(["anchor","positive"])
-# # new_column_vals = [""] * len(test_dataset)
-# # test_dataset=test_dataset.add_column("negative",new_column_vals)
-# # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-# # corpus_dataset = concatenate_datasets([train_dataset, test_dataset])
-
-# from datasets import load_dataset, concatenate_datasets
-# import pandas as pd
-# test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
-# test_dataset=test_dataset.select_columns(["anchor","positive"])
-# new_column_vals = [""] * len(test_dataset)
-# test_dataset=test_dataset.add_column("negative",new_column_vals)
-# # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json")
-# from datasets import Dataset
-# train_df=pd.read_json('../data/trn_with_hard_negatives.json')
-# train_dataset = Dataset.from_pandas(train_df)
-
-# # assert train_dataset.features.type == test_dataset.features.type
-# corpus_dataset = concatenate_datasets([train_dataset, test_dataset])
-
-# # Convert the datasets to dictionaries
-# corpus = dict(
-#     zip(corpus_dataset["id"], corpus_dataset["positive"])
-# )  # Our corpus (cid => document)
-# queries = dict(
-#     zip(test_dataset["id"], test_dataset["anchor"])
-# )  
-
-# # Create a mapping of relevant document (1 in our case) for each query
-# relevant_docs = {}  # Query ID to relevant documents (qid => set([relevant_cids])
-# for q_id in queries:
-#     relevant_docs[q_id] = [q_id]
- 
-# logger.info(f"{len(train_dataset)} rows")
-# # logger.info(train_dataset)
-# # logger.info(train_dataset[0])
-
-# from sentence_transformers import InputExample
-# from tqdm.auto import tqdm  # so we see progress bar
-# train_samples = []
-# for row in tqdm(train_dataset):
-#     train_samples.append(InputExample(
-#         texts=[row['positive'], row['anchor']]
-#     ))
-
-# #get train dataset
-# from sentence_transformers import datasets
-# batch_size = 128
-# loader = datasets.NoDuplicatesDataLoader(
-#     train_samples, batch_size=batch_size)
-
-# #create model
-# from sentence_transformers import models, SentenceTransformer
-# bert = models.Transformer(f'{ut.modelname}')
-# pooler = models.Pooling(
-#     bert.get_word_embedding_dimension(),
-#     pooling_mode_mean_tokens=True
-# )
-# model = SentenceTransformer(modules=[bert, pooler],
-#                             device="cuda:0" if torch.cuda.is_available() else "cpu",)
-
-# #create loss
-# from sentence_transformers import losses
-# loss = losses.MultipleNegativesRankingLoss(model)
-
-# #evaluate base model
-# from sentence_transformers.evaluation import InformationRetrievalEvaluator
-# dev_evaluator = InformationRetrievalEvaluator(
-#     queries=queries,
-#     corpus=corpus,
-#     relevant_docs=relevant_docs,
-#     name=f'{ut.modelname}',
-# )
-# logger.info(f'Base {ut.modelname} performance:')
-# tmptme=datetime.now()
-# logger.info(dev_evaluator(model))
-# logger.info(f'Total time for base model eval={datetime.now() - tmptme}')
-
-# #train model
-# epochs = 4
-# warmup_steps = int(len(loader) * epochs * 0.1)
-
-# model.fit(
-#     train_objectives=[(loader, loss)],
-#     epochs=epochs,
-#     warmup_steps=warmup_steps,
-#     output_path=f'./{ut.modelname}',
-#     show_progress_bar=True
-# ) 
-
-# logger.info(f'Finetuned {ut.modelname} performance:')
-# logger.info(dev_evaluator(model))
-# logger.info(f'Total time for script={datetime.now() - startTime}')
-
-# dev_evaluator = InformationRetrievalEvaluator(
-#     queries=queries,
-#     corpus=corpus,
-#     relevant_docs=relevant_docs,
-#     name=f'{ut.modelname}',
-# )
-# logger.info(f'Base {ut.modelname} performance:')
-# tmptme=datetime.now()
-# logger.info(dev_evaluator(model))
-# logger.info(f'Total time for base model eval={datetime.now() - tmptme}')
-
-# # 8. Save the trained model
-# model.save_pretrained(f"models/{ut.modelname.split('/')[-1]}")
