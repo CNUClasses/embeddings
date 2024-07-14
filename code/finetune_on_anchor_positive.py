@@ -5,33 +5,41 @@ import utils as ut
 LOGGER=None
 def main():
     '''to call this script
-    python3 finetune_on_anchor_positive.py --log_fn custom_log.log --mode w
+    python3 finetune_on_anchor_positive.py --log_fn custom_log.log --mode w --resume y
     
     '''
     global LOGGER
     parser = argparse.ArgumentParser(description="Finetune on anchor, positive pairs")
     parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
-    args = parser.parse_args()
+    parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
+  
+    argsp = parser.parse_args()
 
      # Set up the LOGGER
-    LOGGER = ut.setup_logger(args.log_fn, args.mode)
+    LOGGER = ut.setup_logger(argsp.log_fn, argsp.mode)
     startTime = time.time()
 
     #what model are we using
     modelname=f"{ut.modelname.split('/')[-1]}"
 
     # 1. Load a model to finetune with 2. (Optional) model card data
-    #un-finetuned
-    model = SentenceTransformer(ut.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+    if(argsp.resume=='n'):
+        #original
+        print(f"Loading original model {ut.modelname}")
+        model = SentenceTransformer(ut.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+    else:
+        #finetuned
+        print(f"Loading finetuned model {modelname}")
+        model = SentenceTransformer(ut.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     #if already finetuned
     # model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     # 3. Load a dataset to finetune on
-    train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-    eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
-    test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
+    train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")
+    eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
+    test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
     #process the datasets
     # generate data for informationretreival evaluator

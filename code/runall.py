@@ -21,7 +21,7 @@ def run_script(script_name, script_args):
 def main():
     scripts_with_args = [
         ('finetune_on_anchor_positive.py', ['--log_fn', 'custom_log.log', '--mode', 'w']),
-        ('create_triplet_dataset_using_finetuned_model.py', ['--high', .95,'--low', .5,'--log_fn', 'custom_log.log','--mode', 'a']),
+        ('create_triplet_dataset_using_finetuned_model.py', ['--high', '.95','--low', '.5','--log_fn', 'custom_log.log','--mode', 'a']),
         ('finetune_triplet_anchor_positive_negative.py', ['--log_fn', 'custom_log.log', '--mode', 'a'])
     ]
     
