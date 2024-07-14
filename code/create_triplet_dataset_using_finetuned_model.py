@@ -4,7 +4,7 @@ from tqdm.auto import tqdm  # so we see progress bar
 from tqdm import tqdm
 import json
 from numba import njit
-import logging
+LOGGER=None
 
 class index_values():
     """
@@ -116,14 +116,14 @@ def get_scores_processed(scores, high=0.65):
     scores_mask = (scores < high).to(scores.device)
 
     # Set diagonal to False (don't want true positive included in the hard negatives)
-    mask = (torch.eye(scores_mask.shape[0], scores_mask.shape[0]) > 0).to(scores.device)
-    scores_mask.masked_fill_(mask, False)
+    # mask = (torch.eye(scores_mask.shape[0], scores_mask.shape[0]) > 0).to(scores.device)
+    # scores_mask.masked_fill_(mask, False)
    
     return (scores.cpu().detach().numpy(), scores_mask.cpu().detach().numpy())
 
 
 @njit
-def get_hard_negatives_CPU(scores,scores_mask,positives,low=0.5, high=0.65, topn=5):
+def get_hard_negatives_CPU(scores,scores_mask,positives, high=0.65,low=0.5, topn=5):
     """
     Train a sentencetransformer model, get its average similarity score, use range around that average for hard
     negatives
@@ -162,9 +162,9 @@ def get_hard_negatives_CPU(scores,scores_mask,positives,low=0.5, high=0.65, topn
 
         if(len(res)==0):
             #nothing found between high and low, take the highest 1 seen and return it
-            res = [pos for score, pos in candidates[:1]]
-            if(len(res)==0):
-                print(f'res=[] for row {i}')
+            # res = [pos for score, pos in candidates[:1]]
+            # if(len(res)==0):
+            #     print(f'res=[] for row {i}')
             poor_hn_found+=1
         else:
             hn_found+=1
@@ -177,232 +177,161 @@ def get_hard_negatives_CPU(scores,scores_mask,positives,low=0.5, high=0.65, topn
     print(f"hn_found={hn_found}, poor_hn_found={poor_hn_found}")
     return hard_negatives
 
-def get_scores(modelname, all_positives, anchors):
+def get_scores(modelname, all_positives, anchors, all_positives_embeddings=None):
+    global LOGGER
+
     # Load pre-trained Sentence Transformer Model. It will be downloaded automatically
-    logger.info(f'### loading sentencetransformer {ut.modelname}')
+    LOGGER.info(f'### loading sentencetransformer {ut.modelname}')
 
     #expect a trained model to be in the models directory, the training will help with hard negative mining
     model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     # Use "convert_to_tensor=True" to keep the tensors on GPU (if available)
-    positive_embeddings = model.encode(positives, convert_to_tensor=True)
+    if(all_positives_embeddings is None):   #calculate once
+        all_positives_embeddings = model.encode(all_positives, convert_to_tensor=True)
     anchor_embeddings = model.encode(anchors, convert_to_tensor=True)
 
-    logger.info(f'### generating similarity score matrix')
+    LOGGER.info(f'### generating similarity score matrix')
 
     # We use cosine-similarity 
-    scores=model.similarity(anchor_embeddings, positive_embeddings)
+    scores=model.similarity(anchor_embeddings, all_positives_embeddings)
 
     #to save memory do the following
-    del positive_embeddings, anchor_embeddings
+    del anchor_embeddings
     ut.clean_up()
-    return scores
+    return scores,all_positives_embeddings
 
 def get_df(dataset):
     df = pd.read_json(f'../data/{dataset}.json')
     df.drop_duplicates(subset=['anchor', 'positive'], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    #clean the text
-    for col in cols:
-        df.anchor = df[col].apply(lambda x: preprocess_text(x))
-    
     try:
         df.drop(columns=['most_dissimilar_context'],inplace=True)
     except:
         pass
     return df
 
-def getsentencelists(df,cols):
+def getsentencelists(df,col):
     '''
     param: df:pd dataframe
-    param: cols list of columns in dataframe to return lists from
-    return: tuple of lists, each list contains all strings in column
+    param: col-column in dataframe to return lists from
+    return: lists of all strings in column
      of InputExample objects
      ex.
-     cols=['positive','anchor']
-    positives, anchors = getsentencelists(df,cols)
+     col='positive'
+    positives= getsentencelists(df,col)
     ''' 
-    
-    res={}  
-    for col in cols:
-        res[col]=[]
+    #clean the text
+    df[col] = df[col].apply(lambda x: preprocess_text(x))
+
+    res=[]
     for _,row in tqdm(df.iterrows()):
-        for col in cols:
-            res[col].append(row[col])
-    return (res[col] for col in cols)
+       res.append(row[col])
+    return res
 
+# def get_indexer(all_positives,fn=None):
+#     #save all positives to consider when doing hard negative mining
+#     indexer=index_values(fn)
+#     indexer.set(all_positives)
+#     return indexer
 
-def get_negatives(all_positives, anchors, high=.65, low=0.5, topn=3):
-    """
-    This function retrieves the hard negatives for a given set of positive samples.
-
-    Args:
-        all_positives (list): A list of all positive samples.
-        anchors (list): A list of anchor samples.
-        high (float, optional): The upper threshold for the scores. Defaults to 0.65.
-        low (float, optional): The lower threshold for the scores. Defaults to 0.5.
-        topn (int, optional): The number of hard negatives to retrieve. Defaults to 3.
-
-    Returns:
-        list: A list of hard negative samples, 1 for each anchor.
-        indexer: An indexer object for converting string values to their index.
-
-    """
-    logger.info(f'### #convert all string values to their index for speed and space savings')
-    indexer = index_values(None)
-    indexer.set(all_positives)
-    positives_index = [indexer.getindex(val) for val in all_positives]
-
-    # get the hard negatives
-    processed_scores, mask = get_scores_processed(scores, high)
-    ghn_int = get_hard_negatives_CPU(processed_scores, mask, positives_index, high=high, low=0.5, topn=3)
-
-    logger.info('# NOTE!!!!! only saving the first out of the list for each row!')
-    ghn_strs = [indexer.getval(val[0]) for val in ghn_int]
-    return ghn_strs, indexer
-
-    df['negative'] = ghn_strs
-    df.reset_index(drop=True, inplace=True)  # make sure the indexes are continuous
-def get_negatives(all_positives, anchors, high=.65, low=0.5, topn=3):
-    logger.info(f'### #convert all string values to their index for speed and space savings')
-    indexer=index_values(None)
-    indexer.set(all_positives)
-    positives_index=[indexer.getindex(val) for val in all_positives]
+def get_negatives(all_positives, scores,indexer=None,positives_index=None, high=.65, low=0.5, topn=3):
+    global LOGGER
+    LOGGER.info(f'### #convert all string values to their index for speed and space savings')
+    if indexer is None:
+        indexer=index_values(None)
+        indexer.set(all_positives)
+        positives_index=[indexer.getindex(val) for val in all_positives]
 
     #get the hard negatives
     processed_scores,mask=get_scores_processed(scores,high)
-    ghn_int=get_hard_negatives_CPU(processed_scores,mask,positives_index,high=high,low=0.5,topn=3)
+    ghn_int=get_hard_negatives_CPU(processed_scores,mask,positives_index,high=high,low=low,topn=topn)
 
-    logger.info('# NOTE!!!!! only saving the first out of the list for each row!')
-    ghn_strs=[indexer.getval(val[0]) for val in ghn_int]
-    return ghn_strs,indexer
+    LOGGER.info('# NOTE!!!!! only saving the first out of the list for each row!')
+    ghn_strs=[indexer.getval(val[0]) if len(val)>0 else '' for val in ghn_int ]
+    return ghn_strs,indexer,positives_index
 
+def main():
+    '''to call this script
+    python create_triplet_dataset_using_finetuned_model.py --high .95 --low .5 --log_fn custom_log.log --mode a
+    '''
+    global LOGGER
+    parser = argparse.ArgumentParser(description="Process some floating point numbers and a log filename.")
     
+    parser.add_argument('--high', type=float, default=.95, help='a float value for high (default: .95)')
+    parser.add_argument('--low', type=float, default=.60, help='a float value for low (default: .60)')
+    parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
+    parser.add_argument('--mode', type=str, choices=['a', 'a'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')
+    
+    args = parser.parse_args()
+    
+    high=args.high
+    low=args.low
 
+    # Set up the LOGGER
+    LOGGER = ut.setup_logger(args.log_fn, args.mode)
+    startTime = time.time()
 
-if __name__ == "__main__":
     #suppress numba errors for logging
     from numba.core.errors import NumbaWarning
     import warnings
     warnings.simplefilter('ignore', category=NumbaWarning)
 
-    startTime = datetime.now()
-
     # what model are we using
     modelname=f"{ut.modelname.split('/')[-1]}"
 
-    #setup logging
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=f"LOG_{modelname}_mine_hard_negatives.log", encoding='utf-8', level=logging.DEBUG, filemode="w",)
+    LOGGER.info(f'### Hard negative mining for {modelname} with high={high}, low={low}')
 
-    #datasets to process
+    #datasets to get all positives from
     datasets=['trn','tst','eval']
 
     #get all positives from all datasets
     all_positives=[]
     for ds in datasets:
+        #get the dataset
+        df=get_df(ds)
+
         #save all positives to consider when doing hard negative mining
-        positives=getsentencelists(ds,['positive'])
+        positives=getsentencelists(df,'positive')
         all_positives.extend(positives)
 
+    LOGGER.info(f'Got all positives from all datasets, total {len(all_positives)}\n')
+
+    #calculate the following only once
+    all_positives_embeddings=None
+    indexer=None
+    positives_index=None
+
+    #datasets to calculate hard negatives for
+    datasets=['trn', 'eval']
     for ds in datasets:
         #get the dataset
         df=get_df(ds)
 
         #get a list of anchors
-        anchors=getsentencelists(df,['anchor'])
+        anchors=getsentencelists(df,'anchor')
 
-        scores=get_scores(modelname, all_positives, anchors)
-
+        scores,all_positives_embeddings=get_scores(modelname, all_positives, anchors,all_positives_embeddings)
+ 
         #get the hard negatives, ignore the indexer
-        ghn_strs,_ = get_negatives(all_positives, anchors, high=.65, low=0.5, topn=3)
+        ghn_strs,indexer,positives_index = get_negatives(all_positives, scores, indexer,positives_index, high=.95, low=0.5, topn=3)
 
         #save the hard negatives
         df['negative']=ghn_strs
+
+        #save only rows that have a hard negative
+        df=df[df['negative'].str.len()>0]
+
         df.reset_index(drop=True,inplace=True) #make sure the indexes are continuous
         
         #save to disk (!!use records or its loaded as 1 row in huggingface!)
-        df.to_json(f'../data/{dataset}_with_hard_negatives.json',orient="records")
+        df.to_json(f'../data/{ds}_with_hard_negatives.json',orient="records")
+        LOGGER.info(f'finished {ds} saved {len(df)} to ../data/{ds}_with_hard_negatives.json')
 
-    logger.info(f"--------- Script took  {datetime.now()-startTime} to run")
+    ut.log_execution_time(LOGGER,startTime)
+     
+if __name__ == "__main__":
+    main()
 
-
-
-
-# def save_hard_negatives(dataset, ghn_strs):
-#     try:
-#         #get rid of rubbish is there
-#         df.drop(columns=['most_dissimilar_context'],inplace=True)
-#     except:
-#         pass
-
-#     #save to disk (!!use records or its loaded as 1 row in huggingface!)
-#     df.to_json(f'../data/{dataset}_with_hard_negatives.json',orient="records")
-#     return 
- 
-    # df = pd.read_json(f'../data/{dataset}.json')
-    # df.drop_duplicates(subset=['anchor', 'positive'], inplace=True)
-    # df.reset_index(drop=True, inplace=True)
-    # df.anchor = df['anchor'].apply(lambda x: preprocess_text(x))
-    # df.positive = df['positive'].apply(lambda x: preprocess_text(x))
-
-    # # #### get the columns of interest
-    # logger.info('### getting the columns of interest')
-  
-    # # print(f'There are {len(df)} rows but the positive column has only {df['positive'].nunique()} unique values')
-
-    # #### generate the embeddings
-    # logger.info('### generating the embeddings')
-
-    # # Load pre-trained Sentence Transformer Model. It will be downloaded automatically
-    # logger.info(f'### loading sentencetransformer {ut.modelname}')
-
-    # #expect a trained model to be in the models directory, the training will help with hard negative mining
-    # model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
-
-    # # Use "convert_to_tensor=True" to keep the tensors on GPU (if available)
-    # positive_embeddings = model.encode(positives, convert_to_tensor=True)
-    # anchor_embeddings = model.encode(anchors, convert_to_tensor=True)
-
-    # logger.info(f'### generating similarity score matrix')
-
-    # # We use cosine-similarity 
-    # scores=model.similarity(anchor_embeddings, positive_embeddings)
-
-    # #to save memory do the following
-    # del positive_embeddings, anchor_embeddings
-    # ut.clean_up()
-
-    # logger.info(f'###save for ease of debugging')
-    # torch.save(scores,'scores.pt')
-
-    # import pickle
-    # with open("positives", "wb") as fp:   #Pickling
-    #     pickle.dump(positives, fp)
-
-    # logger.info(f'### #convert all string values to their index to save space and speed this up')
-    # indexer=index_values(None)
-    # indexer.set(positives)
-    # positives_index=[indexer.getindex(val) for val in positives]
-
-    # #get the hard negatives
-    # positives_index=[indexer.getindex(val) for val in positives]
-    # vals=get_scores_processed(scores,high)
-    # ghn_int=get_hard_negatives_CPU(*(vals),positives_index,high=high,low=0.5,topn=3)
-
-    # logger.info('# NOTE!!!!! only saving the first out of the list for each row!')
-    # ghn_strs=[indexer.getval(val[0]) for val in ghn_int]
-
-    # df['negative']=ghn_strs
-    # df.reset_index(drop=True,inplace=True) #make sure the indexes are continuous
-
-    # try:
-    #     df.drop(columns=['most_dissimilar_context'],inplace=True)
-    # except:
-    #     pass
-
-    # #save to disk (!!use records or its loaded as 1 row in huggingface!)
-    # df.to_json(f'../data/{dataset}_with_hard_negatives.json',orient="records")
-    # return 
-
+    

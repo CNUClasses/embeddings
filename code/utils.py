@@ -70,3 +70,26 @@ def get_queries_and_relevant_docs(dataset):
     for q_id in queries:
         relevant_docs[q_id] = [q_id]
     return queries, relevant_docs
+
+def setup_logger(log_filename, mode='a'):
+    # Create a logger object
+    logger = logging.getLogger('custom_logger')
+    logger.setLevel(logging.INFO)
+
+    # Create a file handler which logs messages to a file
+    fh = logging.FileHandler(log_filename, mode=mode)
+    fh.setLevel(logging.INFO)
+
+    # Create a formatter and set it for the handler
+    formatter = logging.Formatter('%(message)s')
+    fh.setFormatter(formatter)
+
+    # Add the handler to the logger
+    logger.addHandler(fh)
+
+    return logger
+
+def log_execution_time(logger, startTime):
+    elapsed_time = time.time()-startTime 
+    minutes, seconds = divmod(elapsed_time, 60)
+    logger.info(f"Execution time: {int(minutes)} minutes and {seconds:.2f} seconds\n")
