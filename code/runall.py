@@ -1,19 +1,34 @@
 import subprocess
+import sys
+import logging
+
+# Set up logging
+logging.basicConfig(filename='script_runner.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 def run_script(script_name, script_args):
-    result = subprocess.run(['python3', script_name] + script_args, capture_output=True, text=True)
-    return result.stdout
+    try:
+        logging.info(f"Starting script: {script_name} with arguments: {script_args}")
+        result = subprocess.run(['python3', script_name] + script_args, 
+                                capture_output=True, text=True, check=True)
+        logging.info(f"Script {script_name} completed successfully")
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Script {script_name} failed with error code {e.returncode}")
+        logging.error(f"Error output: {e.stderr}")
+        return f"Error in {script_name}: {e.stderr}"
 
 def main():
     scripts_with_args = [
-        ('finetune_on_anchor_positive.py', ['custom_log.log', 'w']),
-        ('create_triplet_dataset_using_finetuned_model.py', ['.95','.5','custom_log.log','a']),
-        ('finetune_triplet_anchor_positive_negative.py', ['custom_log.log', 'w'])
+        ('finetune_on_anchor_positive.py', ['--log_fn', 'custom_log.log', '--mode', 'w']),
+        ('create_triplet_dataset_using_finetuned_model.py', ['--high', .95,'--low', .5,'--log_fn', 'custom_log.log','--mode', 'a']),
+        ('finetune_triplet_anchor_positive_negative.py', ['--log_fn', 'custom_log.log', '--mode', 'a'])
     ]
     
     for script, args in scripts_with_args:
         output = run_script(script, args)
         print(f"Output of {script} with arguments {args}:\n{output}")
+        print("-" * 50)  # Separator for readability
 
 if __name__ == "__main__":
     main()

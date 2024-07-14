@@ -4,7 +4,8 @@ import utils as ut
 
 LOGGER=None
 def main():
-    '''to call this scriptpython3 finetune_on_anchor_positive.py --log_fn custom_log.log --mode w
+    '''to call this script
+    python3 finetune_on_anchor_positive.py --log_fn custom_log.log --mode w
     
     '''
     global LOGGER
