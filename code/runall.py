@@ -1,10 +1,13 @@
 import subprocess
 import sys
 import logging
+import utils as ut
 
-# Set up logging
-logging.basicConfig(filename='script_runner.log', level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+#what model are we using
+modelname=f"{ut.modelname.split('/')[-1]}"
+
+# Set up the LOGGER
+LOGGER = ut.setup_logger(modelname, 'w')
 
 def run_script(script_name, script_args):
     try:
@@ -20,9 +23,9 @@ def run_script(script_name, script_args):
 
 def main():
     scripts_with_args = [
-        ('finetune_on_anchor_positive.py', ['--log_fn', 'custom_log.log', '--mode', 'w']),
-        ('create_triplet_dataset_using_finetuned_model.py', ['--high', '.95','--low', '.5','--log_fn', 'custom_log.log','--mode', 'a']),
-        ('finetune_triplet_anchor_positive_negative.py', ['--log_fn', 'custom_log.log', '--mode', 'a'])
+        ('finetune_on_anchor_positive.py', ['--mode', 'w', '--num_epochs','4','--resume','y']),
+        ('create_triplet_dataset_using_finetuned_model.py', ['--high', '.95','--low', '.5','--mode', 'a']),
+        ('finetune_triplet_anchor_positive_negative.py', [ '--mode', 'a','--num_epochs','4','--resume','y'])
     ]
     
     for script, args in scripts_with_args:

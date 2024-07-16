@@ -9,7 +9,10 @@ login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=Tru
 # batch_size=128
 
 # modelname='sentence-transformers/msmarco-MiniLM-L6-cos-v5'
-modelname='BAAI/bge-base-en-v1.5'
+# modelname='BAAI/bge-base-en-v1.5'   #does not work well with leagal dataset and 4 epochs, see log file
+# modelname='msmarco-distilbert-base-dot-prod-v3'
+modelname='msmarco-MiniLM-L-6-v3'
+
 batch_size=64
 
 import torch, gc
@@ -71,10 +74,28 @@ def get_queries_and_relevant_docs(dataset):
         relevant_docs[q_id] = [q_id]
     return queries, relevant_docs
 
-def setup_logger(log_filename, mode='a'):
+def getlogfile(modelname, mode):
+    '''
+    returns a log file name
+    '''
+    #find the next available new log file name
+    i=0
+    while os.path.exists(f"./logs/LOG_{modelname}_{i}.log"):
+        i += 1
+
+    #if appending, get last logfile for this model
+    if mode=='a':
+        i=i-1
+
+    return f"./logs/LOG_{modelname}_{i}.log"
+ 
+
+def setup_logger(modelname, mode='a'):
     # Create a logger object
     logger = logging.getLogger('custom_logger')
     logger.setLevel(logging.INFO)
+
+    log_filename=getlogfile(modelname, mode)
 
     # Create a file handler which logs messages to a file
     fh = logging.FileHandler(log_filename, mode=mode)

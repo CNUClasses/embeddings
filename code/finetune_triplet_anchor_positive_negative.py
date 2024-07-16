@@ -7,13 +7,14 @@ import utils as ut
 LOGGER=None
 def main():
     '''to call this script
-    python3 finetune_triplet_anchor_positive_negative.py --log_fn custom_log.log --mode a
+    python3 finetune_triplet_anchor_positive_negative.py --num_epochs 1 --resume y --mode a
     '''
 
     global LOGGER
     parser = argparse.ArgumentParser(description="Finetune on anchor, positive pairs")
-    parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
+    # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
+    parser.add_argument('--num_epochs', type=int, default=4, help='number epochs to finetune on (default: 4)')   
     parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
  
     argsp = parser.parse_args()

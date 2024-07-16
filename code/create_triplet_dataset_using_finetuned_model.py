@@ -4,6 +4,7 @@ from tqdm.auto import tqdm  # so we see progress bar
 from tqdm import tqdm
 import json
 from numba import njit
+
 LOGGER=None
 
 class index_values():
@@ -254,32 +255,32 @@ def get_negatives(all_positives, scores,indexer=None,positives_index=None, high=
 
 def main():
     '''to call this script
-    python create_triplet_dataset_using_finetuned_model.py --high .95 --low .5 --log_fn custom_log.log --mode a
+    python create_triplet_dataset_using_finetuned_model.py --high .95 --low .5  --mode a
     '''
     global LOGGER
     parser = argparse.ArgumentParser(description="Process some floating point numbers and a log filename.")
     
     parser.add_argument('--high', type=float, default=.95, help='a float value for high (default: .95)')
     parser.add_argument('--low', type=float, default=.60, help='a float value for low (default: .60)')
-    parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
+    # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'a'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')
     
     args = parser.parse_args()
+
+    # what model are we using
+    modelname=f"{ut.modelname.split('/')[-1]}"
     
     high=args.high
     low=args.low
 
     # Set up the LOGGER
-    LOGGER = ut.setup_logger(args.log_fn, args.mode)
+    LOGGER = ut.setup_logger(modelname, args.mode)
     startTime = time.time()
 
     #suppress numba errors for logging
     from numba.core.errors import NumbaWarning
     import warnings
     warnings.simplefilter('ignore', category=NumbaWarning)
-
-    # what model are we using
-    modelname=f"{ut.modelname.split('/')[-1]}"
 
     LOGGER.info(f'### Hard negative mining for {modelname} with high={high}, low={low}')
 
