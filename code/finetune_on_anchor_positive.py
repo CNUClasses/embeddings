@@ -126,7 +126,7 @@ def main():
         loss=loss,
         # compute_metrics=compute_metrics,
         # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
-        evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
+        # evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
     )
     trainer.train()
 

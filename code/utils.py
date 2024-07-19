@@ -9,9 +9,10 @@ login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=Tru
 # batch_size=128
 
 # modelname='sentence-transformers/msmarco-MiniLM-L6-cos-v5'
-# modelname='BAAI/bge-base-en-v1.5'   #does not work well with leagal dataset and 4 epochs, see log file
+modelname='BAAI/bge-large-en-v1.5'   #does not work well with leagal dataset and 4 epochs, see log file
 # modelname='msmarco-distilbert-base-dot-prod-v3'
-modelname='msmarco-MiniLM-L-6-v3'
+# modelname='msmarco-MiniLM-L-6-v3'
+modelname='sentence-transformers/msmarco-distilbert-base-v2'
 
 batch_size=64
 
@@ -86,7 +87,7 @@ def getlogfile(modelname, mode):
     #if appending, get last logfile for this model
     if mode=='a':
         i=i-1
-
+    print(f"Logging to: ./logs/LOG_{modelname}_{i}.log, mode={mode}")
     return f"./logs/LOG_{modelname}_{i}.log"
  
 

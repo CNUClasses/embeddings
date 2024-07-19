@@ -182,10 +182,11 @@ def get_scores(modelname, all_positives, anchors, all_positives_embeddings=None)
     global LOGGER
 
     # Load pre-trained Sentence Transformer Model. It will be downloaded automatically
-    LOGGER.info(f'### loading sentencetransformer {ut.modelname}')
+    LOGGER.info(f'### loading sentencetransformer {modelname}')
 
     #expect a trained model to be in the models directory, the training will help with hard negative mining
-    model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+    # model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+    model = SentenceTransformer(modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     # Use "convert_to_tensor=True" to keep the tensors on GPU (if available)
     if(all_positives_embeddings is None):   #calculate once
@@ -237,7 +238,7 @@ def getsentencelists(df,col):
 #     indexer.set(all_positives)
 #     return indexer
 
-def get_negatives(all_positives, scores,indexer=None,positives_index=None, high=.65, low=0.5, topn=3):
+def get_negatives(all_positives, scores, high, low, indexer=None,positives_index=None, topn=5):
     global LOGGER
     LOGGER.info(f'### #convert all string values to their index for speed and space savings')
     if indexer is None:
@@ -263,18 +264,20 @@ def main():
     parser.add_argument('--high', type=float, default=.95, help='a float value for high (default: .95)')
     parser.add_argument('--low', type=float, default=.60, help='a float value for low (default: .60)')
     # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
-    parser.add_argument('--mode', type=str, choices=['a', 'a'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')
+    parser.add_argument('--mode', type=str, choices=['w', 'a'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')
     
     args = parser.parse_args()
 
     # what model are we using
-    modelname=f"{ut.modelname.split('/')[-1]}"
+    # modelname=f"{ut.modelname.split('/')[-1]}"
+    modelname=ut.modelname
+    short_modelname=modelname.split('/')[-1]
     
     high=args.high
     low=args.low
 
     # Set up the LOGGER
-    LOGGER = ut.setup_logger(modelname, args.mode)
+    LOGGER = ut.setup_logger(short_modelname, args.mode)
     startTime = time.time()
 
     #suppress numba errors for logging
@@ -313,10 +316,10 @@ def main():
         #get a list of anchors
         anchors=getsentencelists(df,'anchor')
 
-        scores,all_positives_embeddings=get_scores(modelname, all_positives, anchors,all_positives_embeddings)
+        scores,all_positives_embeddings=get_scores(short_modelname, all_positives, anchors,all_positives_embeddings)
  
         #get the hard negatives, ignore the indexer
-        ghn_strs,indexer,positives_index = get_negatives(all_positives, scores, indexer,positives_index, high=.95, low=0.5, topn=3)
+        ghn_strs,indexer,positives_index = get_negatives(all_positives, scores,high, low, indexer,positives_index,topn=3)
 
         #save the hard negatives
         df['negative']=ghn_strs

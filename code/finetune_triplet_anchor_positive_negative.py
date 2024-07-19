@@ -19,12 +19,12 @@ def main():
  
     argsp = parser.parse_args()
 
-     # Set up the LOGGER
-    LOGGER = ut.setup_logger(argsp.log_fn, argsp.mode)
-    startTime = time.time()
-
-    # what model are we using
+     # what model are we using
     modelname=f"{ut.modelname.split('/')[-1]}"
+
+     # Set up the LOGGER
+    LOGGER = ut.setup_logger(modelname, argsp.mode)
+    startTime = time.time()
 
     # 1. Load a model to finetune with 2. (Optional) model card data
     if(argsp.resume=='n'):
@@ -100,9 +100,10 @@ def main():
     #     name=f"{modelname}",
     # )
 
-    LOGGER.info(f'---------')
-    LOGGER.info(f"Base {modelname}_triplet performance:")
-    LOGGER.info(test_evaluator(model))
+    LOGGER.info(f"---------TEST SET Triplet-Base {modelname} performance:")
+    res=test_evaluator(model)
+    LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
+    LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
     LOGGER.info(f'---------')
 
     # 7. Create a trainer & train
@@ -116,9 +117,12 @@ def main():
     )
     trainer.train()
 
-    LOGGER.info(f"--------- After pretraining {modelname}_triplet performance:")
-    LOGGER.info(test_evaluator(model))
+    LOGGER.info(f"--------- TEST SET Triplet-After pretraining {modelname} performance:")
+    res=test_evaluator(model)
+    LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
+    LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
     LOGGER.info(f'---------')
+
 
     # 8. Save the trained model
     model.save_pretrained(f"models/{modelname}_triplet/final")
