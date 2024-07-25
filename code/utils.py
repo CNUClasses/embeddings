@@ -1,5 +1,10 @@
 from myimports import *
 
+np.random.seed(42)
+torch.manual_seed(42)
+random.seed(42)
+transformers.set_seed(42)
+
 #hugging face login from environmental variable set in .bash_profile
 from huggingface_hub import login
 login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=True)  # ADD YOUR TOKEN HERE
@@ -14,7 +19,7 @@ modelname='BAAI/bge-large-en-v1.5'   #does not work well with leagal dataset and
 # modelname='msmarco-MiniLM-L-6-v3'
 modelname='sentence-transformers/msmarco-distilbert-base-v2'
 
-batch_size=64
+batch_size=128
 
 import torch, gc
 def clean_up():

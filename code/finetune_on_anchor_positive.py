@@ -1,6 +1,8 @@
 #see https://www.pinecone.io/learn/series/nlp/fine-tune-sentence-transformers-mnr/
 from myimports import *
 import utils as ut
+from transformers.trainer_callback import EarlyStoppingCallback
+
 
 LOGGER=None
 def main():
@@ -32,7 +34,7 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(ut.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     #if already finetuned
     # model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
@@ -125,7 +127,7 @@ def main():
         eval_dataset=eval_dataset,
         loss=loss,
         # compute_metrics=compute_metrics,
-        # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
         # evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
     )
     trainer.train()
@@ -146,7 +148,7 @@ def main():
     ut.log_execution_time(LOGGER,startTime)
 
     # 8. Save the trained model
-    # model.save_pretrained(f"models/{modelname}1/final")
+    model.save_pretrained(f"./models/{modelname}/final")
 
 if __name__ == "__main__":
     main()

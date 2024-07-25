@@ -34,22 +34,30 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(ut.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     # 3. Load a dataset to finetune on
-    train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-    eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
-    test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
+    # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives_HF_old.json", split="train")
+    train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives_HF_new.json", split="train")
+    # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
+
+    # eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
+    # test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
+    eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
+    test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
     #3a generate data for informationretreival evaluator
     # Convert the datasets to dictionaries
 
     corpus_dataset = concatenate_datasets([train_dataset, eval_dataset, test_dataset])
+
+    #lets make sure that the corpus contains only unique values
+
     corpus = dict(
         zip(corpus_dataset["id"], corpus_dataset["positive"])
     )  # Our corpus (cid => document)
-    queries = dict(
-        zip(test_dataset["id"], test_dataset["anchor"])
-    )  
+    # queries = dict(
+    #     zip(test_dataset["id"], test_dataset["anchor"])
+    # )  
 
     #get queries and relevant docs
     # eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset)
@@ -68,7 +76,7 @@ def main():
         # Required parameter:
         output_dir=f"models/{modelname}_triplet",
         # Optional training parameters:
-        num_train_epochs=10,
+        num_train_epochs=argsp.num_epochs,
         per_device_train_batch_size=ut.batch_size,
         per_device_eval_batch_size=ut.batch_size,
         learning_rate=2e-5,

@@ -124,7 +124,7 @@ def get_scores_processed(scores, high=0.65):
 
 
 @njit
-def get_hard_negatives_CPU(scores,scores_mask,positives, high=0.65,low=0.5, topn=5):
+def get_hard_negatives_CPU(scores,scores_mask,positives, high=0.65,low=0.1, topn=5):
     """
     Train a sentencetransformer model, get its average similarity score, use range around that average for hard
     negatives
@@ -161,14 +161,15 @@ def get_hard_negatives_CPU(scores,scores_mask,positives, high=0.65,low=0.5, topn
         candidates=candidates[:topn]
         res = [pos for score, pos in candidates if score >= low ]
 
-        if(len(res)==0):
+        numfound=len(res)
+        if(numfound==0):
             #nothing found between high and low, take the highest 1 seen and return it
             # res = [pos for score, pos in candidates[:1]]
             # if(len(res)==0):
             #     print(f'res=[] for row {i}')
             poor_hn_found+=1
         else:
-            hn_found+=1
+            hn_found+=numfound
         
         hard_negatives.append(res)
         # cntr+=1
@@ -178,15 +179,14 @@ def get_hard_negatives_CPU(scores,scores_mask,positives, high=0.65,low=0.5, topn
     print(f"hn_found={hn_found}, poor_hn_found={poor_hn_found}")
     return hard_negatives
 
-def get_scores(modelname, all_positives, anchors, all_positives_embeddings=None):
+def get_scores(modelname, all_positives, anchors, all_positives_embeddings=None, margin=0.0):
     global LOGGER
 
     # Load pre-trained Sentence Transformer Model. It will be downloaded automatically
     LOGGER.info(f'### loading sentencetransformer {modelname}')
 
     #expect a trained model to be in the models directory, the training will help with hard negative mining
-    # model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
-    model = SentenceTransformer(modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+    model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     # Use "convert_to_tensor=True" to keep the tensors on GPU (if available)
     if(all_positives_embeddings is None):   #calculate once
@@ -197,6 +197,11 @@ def get_scores(modelname, all_positives, anchors, all_positives_embeddings=None)
 
     # We use cosine-similarity 
     scores=model.similarity(anchor_embeddings, all_positives_embeddings)
+
+    #do not keep scores that are > than the anchor, positive score plus a margin
+    positive_scores = scores[:,:scores.shape[1]].diagonal()
+    removed_indices = scores + margin > positive_scores.repeat(scores.size(1), 1).T
+    scores[removed_indices] = -1.0  # most dissimilar via cosign similarity
 
     #to save memory do the following
     del anchor_embeddings
@@ -250,8 +255,16 @@ def get_negatives(all_positives, scores, high, low, indexer=None,positives_index
     processed_scores,mask=get_scores_processed(scores,high)
     ghn_int=get_hard_negatives_CPU(processed_scores,mask,positives_index,high=high,low=low,topn=topn)
 
-    LOGGER.info('# NOTE!!!!! only saving the first out of the list for each row!')
-    ghn_strs=[indexer.getval(val[0]) if len(val)>0 else '' for val in ghn_int ]
+    # LOGGER.info('# NOTE!!!!! only saving the first out of the list for each row!')
+    # for lst in ghn_int:
+    #     if len(lst)>0:
+    #         LOGGER.info(f'### {lst}')
+    #         break
+    # ghn_strs=[indexer.getval(val[0]) if len(val)>0 else '' for val in ghn_int ]
+
+    #transform the ints back to strings and return the list of strings
+    ghn_strs=[[indexer.getval(val) for val in lst] for lst in ghn_int]
+    # returns the transformed strings
     return ghn_strs,indexer,positives_index
 
 def main():
@@ -262,7 +275,7 @@ def main():
     parser = argparse.ArgumentParser(description="Process some floating point numbers and a log filename.")
     
     parser.add_argument('--high', type=float, default=.95, help='a float value for high (default: .95)')
-    parser.add_argument('--low', type=float, default=.60, help='a float value for low (default: .60)')
+    parser.add_argument('--low', type=float, default=.10, help='a float value for low (default: .1)')
     # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['w', 'a'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')
     
@@ -319,13 +332,19 @@ def main():
         scores,all_positives_embeddings=get_scores(short_modelname, all_positives, anchors,all_positives_embeddings)
  
         #get the hard negatives, ignore the indexer
-        ghn_strs,indexer,positives_index = get_negatives(all_positives, scores,high, low, indexer,positives_index,topn=3)
+        ghn_strs,indexer,positives_index = get_negatives(all_positives, scores,high, low, indexer,positives_index,topn=5)
 
-        #save the hard negatives
+        #save the hard negative lists
         df['negative']=ghn_strs
 
         #save only rows that have a hard negative
-        df=df[df['negative'].str.len()>0]
+        df=df[df['negative'].apply(lambda x: len(x)>0)]
+
+        #cannot do this, loader errors out
+        # df['negative']=df['negative'].fillna(' ')
+
+        #for every row with multiple hard negatives, add a row for each hard negative
+        df=df.explode('negative')
 
         df.reset_index(drop=True,inplace=True) #make sure the indexes are continuous
         
