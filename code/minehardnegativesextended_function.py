@@ -11,7 +11,7 @@ except Exception as e:
     #added by KP
     def dropduplicaterows(ds: "Dataset"):
         """
-        Remove duplicate rows from a dataset.
+        Remove duplicate rows from a dataset.  Expects Dataset to have a single column
 
         Args:
             ds (huggingface dataset): The input dataset.
@@ -19,6 +19,11 @@ except Exception as e:
         Returns:
             datasets.Dataset: The dataset with duplicate rows removed.
         """
+        # just 1 column
+        columns = ds.column_names
+        if len(columns) != 1:
+            raise ValueError("Dataset must contain exactly two columns.")
+        
         ds = pd.DataFrame(ds)
         ds = ds.drop_duplicates()
         ds = datasets.Dataset.from_pandas(ds, preserve_index=False)

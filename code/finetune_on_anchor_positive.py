@@ -1,10 +1,10 @@
 #see https://www.pinecone.io/learn/series/nlp/fine-tune-sentence-transformers-mnr/
+
 from myimports import *
 import utils as ut
 from transformers.trainer_callback import EarlyStoppingCallback
-
-
 LOGGER=None
+
 def main():
     '''to call this script
     python3 finetune_on_anchor_positive.py --mode w --num_epochs 1 --resume y
@@ -34,29 +34,25 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)
-
-    #if already finetuned
-    # model = SentenceTransformer(f"./models/{modelname}",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
 
     # 3. Load a dataset to finetune on
     train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")
     eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
     test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
-    #process the datasets
-    # generate data for informationretreival evaluator
-    # Convert the datasets to dictionaries
-    corpus_dataset = concatenate_datasets([train_dataset, eval_dataset, test_dataset])
 
+    # generate data for informationretreival evaluator
+    corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
+ 
     #collect all positives from train,eval,test
     corpus = dict(
         zip(corpus_dataset["id"], corpus_dataset["positive"])
     )  # Our corpus (cid => document)
 
     #get queries and relevant docs
-    eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset)
-    test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset)
+    eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset,corpus_mapper)
+    test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset,corpus_mapper)
 
     # drop the id column from the datasets (otherwise they will be considered as inputs
     # want only anchor and positive columns
@@ -91,7 +87,7 @@ def main():
 
         # metric_for_best_model = 'NDCG@10',
         # greater_is_better=True,
-        load_best_model_at_end = True,  #for early stopping
+        # load_best_model_at_end = True,  #for early stopping
     )
 
     # 6. Evaluaters (for eval and test datasets)
@@ -107,7 +103,7 @@ def main():
         relevant_docs=test_relevant_docs,
         name=modelname,)
 
-    LOGGER.info(f"---------TEST SET  Base {modelname} performance:")
+    LOGGER.info(f"***TEST SET  Base {modelname} performance:")
     res=test_evaluator(model)
     LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
     LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
@@ -127,7 +123,7 @@ def main():
         eval_dataset=eval_dataset,
         loss=loss,
         # compute_metrics=compute_metrics,
-        callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
+        # callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
         # evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
     )
     trainer.train()

@@ -5,6 +5,7 @@
 from myimports import *
 import utils as ut
 LOGGER=None
+
 def main():
     '''to call this script
     python3 finetune_triplet_anchor_positive_negative.py --num_epochs 1 --resume y --mode a
@@ -34,34 +35,26 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f"models/{modelname}_triplet/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
 
     # 3. Load a dataset to finetune on
-    # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives_HF_old.json", split="train")
-    train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives_HF_new.json", split="train")
-    # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-
-    # eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
-    # test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
-    eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
-    test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
-    #3a generate data for informationretreival evaluator
-    # Convert the datasets to dictionaries
-
-    corpus_dataset = concatenate_datasets([train_dataset, eval_dataset, test_dataset])
-
-    #lets make sure that the corpus contains only unique values
-
+    train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
+    eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
+    test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
+ 
+    
+    # generate data for informationretreival evaluator
+    corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
+ 
+    #collect all positives from train,eval,test
     corpus = dict(
         zip(corpus_dataset["id"], corpus_dataset["positive"])
     )  # Our corpus (cid => document)
-    # queries = dict(
-    #     zip(test_dataset["id"], test_dataset["anchor"])
-    # )  
+
 
     #get queries and relevant docs
-    # eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset)
-    test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset)
+    # eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset,corpus_mapper)
+    test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset,corpus_mapper)
 
     # drop the id column from the datasets
     train_dataset = train_dataset.remove_columns(["id"])
@@ -86,7 +79,7 @@ def main():
         batch_sampler=BatchSamplers.NO_DUPLICATES,  # MultipleNegativesRankingLoss benefits from no duplicate samples in a batch
         # Optional tracking/debugging parameters:
         eval_strategy="steps",
-        eval_steps=500,
+        eval_steps=100,
         save_strategy="steps",
         save_steps=100,
         save_total_limit=2,
@@ -133,7 +126,7 @@ def main():
 
 
     # 8. Save the trained model
-    model.save_pretrained(f"models/{modelname}_triplet/final")
+    model.save_pretrained(f"./models/{modelname}_triplet/final")
 
     # 9. (Optional) Push it to the Hugging Face Hub
     # model.push_to_hub(f"{ut.modelname.split('/')[-1]}_triplet")
