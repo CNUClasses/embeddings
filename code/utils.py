@@ -49,10 +49,13 @@ def drop_duplicate_rows(df, col,verbose=True):
         # 2  3  6
     """
     nr = len(df)
-    df = df.drop_duplicates(subset=[col])
+    if(type(col)==list):
+        df = df.drop_duplicates(subset=col)
+    else:
+        df = df.drop_duplicates(subset=[col])
     df.reset_index(drop=True, inplace=True)
     if(verbose==True):
-        print(f'dropped {nr - len(df)} rows. have {len(df)} rows left')
+        print(f'dropped {nr - len(df)} duplicate rows. have {len(df)} rows left')
     return df
 
 #to convert dataset column type
@@ -85,28 +88,6 @@ def change_col_to_list(df,col):
 
     return df
 
-#### training stuff#####
-# def get_queries_and_relevant_docs(dataset,mapper):
-#     """
-#     Extracts queries and relevant documents from a dataset.
-
-#     Args:
-#         dataset (huggingface dataset):
-#         mapper (dict): A dictionary mapping a string to its associated ID in the corpus.
-
-#     Returns:
-#         tuple: A tuple containing two dictionaries:
-#             - queries: A dictionary mapping query IDs to query anchors.
-#             - relevant_docs: A dictionary mapping query IDs to relevant documents.
-#               Each query ID is associated with a list of relevant document IDs, where the first ID is the query ID itself.
-#     """
-#     queries = dict(
-#         zip(dataset["id"], dataset["anchor"])
-#     )  
-#     relevant_docs = {}  # Query ID to relevant documents (qid => set([relevant_cids])
-#     for q_id in queries:
-#         relevant_docs[q_id] = [q_id]
-#     return queries, relevant_docs
 def get_queries_and_relevant_docs(dataset,mapper):
     """
     Extracts queries and relevant documents from a dataset.
@@ -179,17 +160,6 @@ def get_corpus_and_corpus_mapper(trn:Dataset, eval:Dataset, tst:Dataset, dup_col
     corpus_mapper = dict(zip(corpus_dataset['positive'], corpus_dataset['id']))
 
     return corpus_dataset, corpus_mapper
-
-def get_corpus_and_corpus_mapper(trn:Dataset,eval:Dataset,tst:Dataset, dup_col='positive'):
-
-    corpus_dataset = concatenate_datasets([trn, eval, tst])
-    #drop duplicates
-    ds = pd.DataFrame(corpus_dataset)
-    ds=drop_duplicate_rows(ds,dup_col)  #dump all rows that have duplicates in the positive column
-    corpus_dataset = datasets.Dataset.from_pandas(ds, preserve_index=False)
-    corpus_mapper=dict(zip(corpus_dataset['positive'],corpus_dataset['id']))
-
-    return corpus_dataset,corpus_mapper
 
 def getlogfile(modelname, mode):
     '''

@@ -35,12 +35,12 @@ def main():
         #finetuned
         print(f"Loading finetuned model {modelname}")
         model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
+        # model = SentenceTransformer(f'./models/{modelname}_triplet/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
 
     # 3. Load a dataset to finetune on
     train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")
     eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
     test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
-
 
     # generate data for informationretreival evaluator
     corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
@@ -66,7 +66,7 @@ def main():
     # 5. (Optional) Specify training arguments
     args = SentenceTransformerTrainingArguments(
         # Required parameter:
-        output_dir=f"models/{modelname}",
+        output_dir=f"./models/{modelname}",
         # Optional training parameters:
         num_train_epochs=argsp.num_epochs,
         per_device_train_batch_size=ut.batch_size,
@@ -122,9 +122,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         loss=loss,
-        # compute_metrics=compute_metrics,
-        # callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
-        # evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
+        compute_metrics=compute_metrics,
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
+        evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
     )
     trainer.train()
 
