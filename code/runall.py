@@ -23,9 +23,10 @@ def run_script(script_name, script_args):
 
 def main():
     scripts_with_args = [
-        ('finetune_on_anchor_positive.py', ['--mode', 'a', '--num_epochs','4','--resume','n']),
+        # ('finetune_on_anchor_positive.py', ['--mode', 'a', '--num_epochs','4','--resume','n']),
         ('mine_hard_negatives.py', []),
-        ('finetune_triplet_anchor_positive_negative.py', [ '--mode', 'a','--num_epochs','4','--resume','n'])
+        ('finetune_triplet_anchor_positive_negative.py', [ '--mode', 'w','--num_epochs','4','--resume','n']),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y'])
     ]
     
     for script, args in scripts_with_args:

@@ -17,10 +17,9 @@ def main():
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
     parser.add_argument('--num_epochs', type=int, default=4, help='number epochs to finetune on (default: 4)')   
     parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
- 
     argsp = parser.parse_args()
 
-     # what model are we using
+    # what model are we using
     modelname=f"{ut.modelname.split('/')[-1]}"
 
      # Set up the LOGGER
@@ -145,7 +144,7 @@ def main():
     model.save_pretrained(f"./models/{modelname}_triplet_legal/final")
 
     # 9. (Optional) Push it to the Hugging Face Hub
-    model.push_to_hub(f"{ut.modelname.split('/')[-1]}_triplet_legal")
+    model.push_to_hub(f"{ut.modelname.split('/')[-1]}_triplet_legal",exist_ok=True)
 
     ut.log_execution_time(LOGGER,startTime)
 

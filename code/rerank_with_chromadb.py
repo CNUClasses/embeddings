@@ -3,33 +3,7 @@ import utils as ut
 import chromadb
 client = chromadb.Client()
 from chromadb.utils import embedding_functions
-
-# 3. Load datasets
-train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
-test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
-
-# generate data for informationretreival evaluator
-corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
-
-#collect all positives from train,eval,test
-corpus = dict(
-    zip(corpus_dataset["id"], corpus_dataset["positive"])
-)  # Our corpus (cid => document)
-
-#get uploaded fine tuned embedder
-st_ef=embedding_functions.SentenceTransformerEmbeddingFunction("kperkins411/msmarco-distilbert-base-v2_triplet_legal",device='cpu')
-
-#or from a local model
-# st_ef=embedding_functions.SentenceTransformerEmbeddingFunction("./models/msmarco-distilbert-base-v2_triplet/final",device='cpu')
-
-# Create a new chroma collection
-st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
-
-#add all corpus values to collection
-st_collection.add(
-    documents=list(corpus.values()),
-    ids=[str(id) for id in list(corpus.keys())])
+LOGGER=None
 
 #Lets see how it performs on multiple queries
 from sentence_transformers import CrossEncoder
@@ -52,58 +26,126 @@ class track_stats:
     - print_stats(self): Prints the statistics.
     """
 
-    def __init__(self, test_dataset, corpus_mapper):
+    def __init__(self, test_dataset, corpus_mapper, mode):
         self.test_dataset = test_dataset
         self.corpus_mapper = corpus_mapper
         self.stats = defaultdict(int) #defaults to 0
+        self.mode = mode
 
-    def __call__(self, i, max_score):
+    def __call__(self, i, res_list):
         """
         Updates the statistics based on the given index and maximum score.
 
         Parameters:
         - i (int): The index of the example.
         - max_score (int): The maximum score obtained for the example.
-        """
+        """  
+        correct_doc = self.corpus_mapper[self.test_dataset['positive'][i]]
+        original_choice = self.corpus_mapper[res_list[0]]
+     
         self.stats['totals'] += 1
-        if max_score != 0:
-            correct_doc = self.corpus_mapper[self.test_dataset['positive'][i]]
-            original_choice = self.corpus_mapper[results['documents'][i][0]]
-            reranked_choice = self.corpus_mapper[results['documents'][i][max_score]]
-            if correct_doc == reranked_choice:
-                self.stats['correctly_reranked'] += 1
-            else:
-                if correct_doc == original_choice:
-                    self.stats['reranked_incorrectly'] += 1
-                else:
-                    self.stats['both_incorrect'] += 1
+        docs=[self.corpus_mapper[res] for res in res_list]
 
-    def print_stats(self):
-        """
-        Prints the statistics.
-        """
-        print(f"Correct original predictions {self.stats['totals'] - self.stats['correctly_reranked'] - self.stats['reranked_incorrectly'] - self.stats['both_incorrect']} out of {self.stats['totals']}")
-        print(f"correctly reranked {self.stats['correctly_reranked']} out of {self.stats['totals']}")
-        print(f"incorrectly reranked {self.stats['reranked_incorrectly']} out of {self.stats['totals']}")
-        print(f"both_incorrect {self.stats['both_incorrect']} out of {self.stats['totals']}")
+        if correct_doc == original_choice:
+            #top choice correct?
+            self.stats['correct@0'] += 1
+                       
+        #in top 5?
+        if(correct_doc in docs[:5]):
+            self.stats['correct@5'] += 1
 
-#stat tracker    
-ts = track_stats(test_dataset,corpus_mapper)
+        #in top 10
+        if(correct_doc in docs[:10]):
+            self.stats['correct@10'] += 1
+        
 
-#this is not fine tuned!
-model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', max_length=512)
+    def print_stats(self,logger):
+        logger.info(f"Statistics for {self.mode} mode")
+        total=self.stats['totals']
+        logger.info(f"self.stats['correct@0'] {self.stats['correct@0']} out of {total} for accuracy of {(self.stats['correct@0']/total)*100:.2f} %")
+        logger.info(f"self.stats['correct@5'] {self.stats['correct@5']} out of {total} for accuracy of {(self.stats['correct@5']/total)*100:.2f} %")
+        logger.info(f"self.stats['correct@10'] {self.stats['correct@0']} out of {total} for accuracy of {(self.stats['correct@10']/total)*100:.2f} %")
+ 
 
-#get matches for all queries
-results = st_collection.query(
-    # query_texts=test_dataset[0]['anchor'], #query single text
-    query_texts=test_dataset['anchor'],  # Query all texts
-    n_results=10    #10 results per query
-)
+def main():
+    '''to call this script
+    python3 rerank_with_chromadb.py --mode a --localmodel y
+    '''
 
-# rerank the results with original query and documents returned from Chroma
-for i in tqdm(range(len(test_dataset))):
-    scores = model.predict([(test_dataset['anchor'][i], doc) for doc in results["documents"][i]])
-    max_score=np.argmax(scores)
-    ts(i,max_score)
+    global LOGGER
+    parser = argparse.ArgumentParser(description="rerank model outputs")
+    # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
+    parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
+    parser.add_argument('--localmodel', type=str, choices=['y', 'n'], default='y', help='get model locally or from hugging face: "y" local, "n" hugging face (default: "y")')  
+ 
+    argsp = parser.parse_args()
 
-ts.print_stats()
+    # 3. Load datasets
+    train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
+    eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
+    test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
+
+    # generate data for informationretreival evaluator
+    corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
+
+    #collect all positives from train,eval,test
+    corpus = dict(
+        zip(corpus_dataset["id"], corpus_dataset["positive"])
+    )  # Our corpus (cid => document)
+
+    # what model are we using
+    modelname=f"{ut.modelname.split('/')[-1]}"
+
+    # Set up the LOGGER
+    LOGGER = ut.setup_logger(modelname, argsp.mode)
+    startTime = time.time()
+
+    if(argsp.localmodel=='n'):
+        #get uploaded fine tuned embedder
+        print("model from hugging face hub")
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction("kperkins411/msmarco-distilbert-base-v2_triplet_legal",device='cpu')
+    else:
+        #or from a local model
+        print("model from local disk")
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}_triplet_legal/final",device='cpu')
+    
+    # Create a new chroma collection
+    st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
+
+    #add all corpus values to collection
+    st_collection.add(
+        documents=list(corpus.values()),
+        ids=[str(id) for id in list(corpus.keys())])
+   
+    #stat tracker    
+    ts_original = track_stats(test_dataset,corpus_mapper, "original")
+    ts_reranked = track_stats(test_dataset,corpus_mapper, "reranked")
+
+    #this is not fine tuned!
+    model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', max_length=512)
+
+    #get matches for all queries
+    results = st_collection.query(
+        # query_texts=test_dataset[0]['anchor'], #query single text
+        query_texts=test_dataset['anchor'],  # Query all texts
+        n_results=10    #10 results per query
+    )
+
+    # rerank the results with original query and documents returned from Chroma
+    for i in tqdm(range(len(test_dataset))):
+        #original
+        res_list=results["documents"][i]
+        ts_original(i, res_list)
+
+        #reranked
+        scores = model.predict([(test_dataset['anchor'][i], doc) for doc in res_list])
+        res_list_reranked=[x for _, x in sorted(zip(scores, results["documents"][i]), key=lambda pair: pair[0], reverse=True)]
+        ts_reranked(i, res_list_reranked)
+    
+    ts_original.print_stats(LOGGER)
+    ts_reranked.print_stats(LOGGER)
+
+    ut.log_execution_time(LOGGER,startTime)
+
+if __name__ == "__main__":
+    main()
