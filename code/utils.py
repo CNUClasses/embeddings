@@ -14,12 +14,18 @@ login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=Tru
 # batch_size=128
 
 # modelname='sentence-transformers/msmarco-MiniLM-L6-cos-v5'
-modelname='BAAI/bge-large-en-v1.5'   #does not work well with leagal dataset and 4 epochs, see log file
+# modelname='BAAI/bge-large-en-v1.5'   #does not work well with leagal dataset and 4 epochs, see log file
 # modelname='msmarco-distilbert-base-dot-prod-v3'
 # modelname='msmarco-MiniLM-L-6-v3'
-modelname='sentence-transformers/msmarco-distilbert-base-v2'
 
-batch_size=128
+# model = SentenceTransformer("intfloat/e5-mistral-7b-instruct")
+# batch_size=32
+
+# modelname='sentence-transformers/msmarco-distilbert-base-v2'
+# batch_size=128
+
+# modelname='sentence-transformers/multi-qa-mpnet-base-cos-v1'
+# batch_size=64
 
 import torch, gc
 def clean_up():
@@ -182,7 +188,8 @@ def setup_logger(modelname, mode='a', verbose=True):
     logger = logging.getLogger('custom_logger')
     logger.setLevel(logging.INFO)
 
-    log_filename=getlogfile(modelname, mode)
+    # log_filename=getlogfile(modelname, mode)
+    log_filename=f"./logs/LOG_{modelname}.log"
 
     # Create a file handler which logs messages to a file
     fh = logging.FileHandler(log_filename, mode=mode)

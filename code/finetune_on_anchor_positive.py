@@ -7,7 +7,7 @@ LOGGER=None
 
 def main():
     '''to call this script
-    python3 finetune_on_anchor_positive.py --mode w --num_epochs 1 --resume y
+    python3 finetune_on_anchor_positive.py --mode w --num_epochs 1 --resume y --modelname dunzhang/stella_en_400M_v5 --batch_size 16
     
     '''
     global LOGGER
@@ -16,11 +16,13 @@ def main():
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
     parser.add_argument('--num_epochs', type=int, default=4, help='number epochs to finetune on (default: 4)')  
     parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
- 
+    parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
+    parser.add_argument('--batch_size', type=str, default='32', help='batch size for model (default: "32")')  
+
     argsp = parser.parse_args()
 
     #what model are we using
-    modelname=f"{ut.modelname.split('/')[-1]}"
+    modelname=f"{argsp.modelname.split('/')[-1]}"
 
     # Set up the LOGGER
     LOGGER = ut.setup_logger(modelname, argsp.mode)
@@ -29,12 +31,13 @@ def main():
     # 1. Load a model to finetune with 2. (Optional) model card data
     if(argsp.resume=='n'):
         #original
-        print(f"Loading original model {ut.modelname}")
-        model = SentenceTransformer(ut.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        print(f"Loading original model {argsp.modelname}")
+        # model = SentenceTransformer(argsp.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(argsp.modelname, trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",)
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f'./models/{modelname}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
+        model = SentenceTransformer(f'./models/{modelname}_posanchor_legal/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
         # model = SentenceTransformer(f'./models/{modelname}_triplet/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
 
     # 3. Load a dataset to finetune on
@@ -66,11 +69,11 @@ def main():
     # 5. (Optional) Specify training arguments
     args = SentenceTransformerTrainingArguments(
         # Required parameter:
-        output_dir=f"./models/{modelname}",
+        output_dir=f"./models/{modelname}_posanchor_legal",
         # Optional training parameters:
         num_train_epochs=argsp.num_epochs,
-        per_device_train_batch_size=ut.batch_size,
-        per_device_eval_batch_size=ut.batch_size,
+        per_device_train_batch_size=int(argsp.batch_size),
+        per_device_eval_batch_size=int(argsp.batch_size),
         learning_rate=2e-5,
         warmup_ratio=0.1,
         fp16=True,  # Set to False if you get an error that your GPU can't run on FP16
@@ -107,6 +110,7 @@ def main():
     res=test_evaluator(model)
     LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
     LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
+    LOGGER.info(f"{modelname}_cosine_map@100:{res[modelname+'_cosine_map@100']}")
     LOGGER.info(f'---------')
 
     # LOGGER.info(f"---------EVAL SET  Base {modelname} performance:")
@@ -122,9 +126,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         loss=loss,
-        compute_metrics=compute_metrics,
-        callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
-        evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
+        # compute_metrics=compute_metrics,
+        # callbacks = [EarlyStoppingCallback(early_stopping_patience=1)]
+        # evaluator=eval_evaluator,             #if have an evaluator it will be run on the 2000 row eval dataset every 500 steps, slows it down
     )
     trainer.train()
 
@@ -132,7 +136,7 @@ def main():
     res=test_evaluator(model)
     LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
     LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
-    LOGGER.info(f'---------')
+    LOGGER.info(f"{modelname}_cosine_map@100:{res[modelname+'_cosine_map@100']}")
 
     # LOGGER.info(f"---------EVAL SET-After pretraining {modelname} performance:")
     # res=eval_evaluator(model)
@@ -144,7 +148,7 @@ def main():
     ut.log_execution_time(LOGGER,startTime)
 
     # 8. Save the trained model
-    model.save_pretrained(f"./models/{modelname}/final")
+    model.save_pretrained(f"./models/{modelname}_posanchor_legal/final")
 
 if __name__ == "__main__":
     main()

@@ -64,12 +64,12 @@ class track_stats:
         total=self.stats['totals']
         logger.info(f"self.stats['correct@0'] {self.stats['correct@0']} out of {total} for accuracy of {(self.stats['correct@0']/total)*100:.2f} %")
         logger.info(f"self.stats['correct@5'] {self.stats['correct@5']} out of {total} for accuracy of {(self.stats['correct@5']/total)*100:.2f} %")
-        logger.info(f"self.stats['correct@10'] {self.stats['correct@0']} out of {total} for accuracy of {(self.stats['correct@10']/total)*100:.2f} %")
+        logger.info(f"self.stats['correct@10'] {self.stats['correct@10']} out of {total} for accuracy of {(self.stats['correct@10']/total)*100:.2f} %")
  
 
 def main():
     '''to call this script
-    python3 rerank_with_chromadb.py --mode a --localmodel y
+    python3 rerank_with_chromadb.py --mode a --localmodel y --loss triplet --modelname sentence-transformers/multi-qa-mpnet-base-cos-v1 --crossencoder 'cross-encoder/ms-marco-MiniLM-L-6-v2'
     '''
 
     global LOGGER
@@ -77,13 +77,19 @@ def main():
     # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
     parser.add_argument('--localmodel', type=str, choices=['y', 'n'], default='y', help='get model locally or from hugging face: "y" local, "n" hugging face (default: "y")')  
- 
+    parser.add_argument('--loss', type=str, choices=['pos_anchor', 'triplet'], default='triplet', help='loss that model used: "pos_anchor" for MRRL model, "triplet" for triplet loss model (default: "triplet")')  
+    parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
+    parser.add_argument('--crossencoder', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
+
     argsp = parser.parse_args()
+
+    #what model are we using
+    modelname=f"{argsp.modelname.split('/')[-1]}"
 
     # 3. Load datasets
     train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
     eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
-    test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
+    test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
     # generate data for informationretreival evaluator
     corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
@@ -93,21 +99,25 @@ def main():
         zip(corpus_dataset["id"], corpus_dataset["positive"])
     )  # Our corpus (cid => document)
 
-    # what model are we using
-    modelname=f"{ut.modelname.split('/')[-1]}"
-
-    # Set up the LOGGER
+     # Set up the LOGGER
     LOGGER = ut.setup_logger(modelname, argsp.mode)
     startTime = time.time()
 
     if(argsp.localmodel=='n'):
         #get uploaded fine tuned embedder
         print("model from hugging face hub")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction("kperkins411/msmarco-distilbert-base-v2_triplet_legal",device='cpu')
+        if(argsp.loss=='pos_anchor'):
+            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_posanchor_legal",device='cpu')
+        else:
+            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_triplet_legal",device='cpu')
     else:
         #or from a local model
         print("model from local disk")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}_triplet_legal/final",device='cpu')
+        if(argsp.loss=='pos_anchor'):
+            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}_posanchor_legal/final",trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        else:
+            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}_triplet_legal/final",trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",) #for triplets
+        # st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/final",device='cpu')   #for non triplet models
     
     # Create a new chroma collection
     st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
@@ -118,17 +128,26 @@ def main():
         ids=[str(id) for id in list(corpus.keys())])
    
     #stat tracker    
-    ts_original = track_stats(test_dataset,corpus_mapper, "original")
-    ts_reranked = track_stats(test_dataset,corpus_mapper, "reranked")
+    ts_original = track_stats(test_dataset,corpus_mapper, argsp.loss)
+    ts_reranked = track_stats(test_dataset,corpus_mapper, argsp.loss+" reranked")
 
     #this is not fine tuned!
-    model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', max_length=512)
+    # RERANKER = CrossEncoder(argsp.crossencoder)
+
+    #test finetuned jobbie
+    model='cross-encoder/ms-marco-MiniLM-L-12-v2'
+    model_save_path = f"./models/finetuned_{model.replace('/','-')}"
+    RERANKER = CrossEncoder(model_save_path)
+
+    #gives worse scores on better models, not worth it
+    # from ragatouille import RAGPretrainedModel
+    # RERANKER = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0", verbose=0)
 
     #get matches for all queries
     results = st_collection.query(
         # query_texts=test_dataset[0]['anchor'], #query single text
         query_texts=test_dataset['anchor'],  # Query all texts
-        n_results=10    #10 results per query
+        n_results=30    #10 results per query
     )
 
     # rerank the results with original query and documents returned from Chroma
@@ -137,9 +156,12 @@ def main():
         res_list=results["documents"][i]
         ts_original(i, res_list)
 
-        #reranked
-        scores = model.predict([(test_dataset['anchor'][i], doc) for doc in res_list])
+        #reranked for standard rerankers
+        scores = RERANKER.predict([(test_dataset['anchor'][i], doc) for doc in res_list])
         res_list_reranked=[x for _, x in sorted(zip(scores, results["documents"][i]), key=lambda pair: pair[0], reverse=True)]
+
+        # ragatouille reranker, dont bother
+        # res_list_reranked=[res['content'] for res in RERANKER.rerank(test_dataset['anchor'][i], res_list,k=10)]
         ts_reranked(i, res_list_reranked)
     
     ts_original.print_stats(LOGGER)

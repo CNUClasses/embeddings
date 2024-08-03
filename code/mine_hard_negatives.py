@@ -33,11 +33,11 @@ def get_hn_dataset(ds:"Dataset", corpus_dataset:"Dataset"):
             dataset=ds,
             model=model,
             corpus=corpus_dataset,
-            range_min=10,
-            range_max=50,
-            max_score=0.8,
-            margin=0.1,
-            num_negatives=5,
+            range_min=0,  #was 10
+            # range_max=50, #was 50
+            # max_score=0.,  #was .8
+            margin=0,  #gurantees that the negative is always further away than the positive
+            num_negatives=3,
             sampling_strategy="random",
             batch_size=ut.batch_size,
             use_faiss=False,
