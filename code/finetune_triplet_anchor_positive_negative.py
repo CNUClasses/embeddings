@@ -3,12 +3,16 @@
 #this is to be run on the triplet dataset created by create_triplet_dataset_using_finetuned_model.py
 
 from myimports import *
+from CircleLoss import CircleLoss
 import utils as ut
+
+ut.login_hf()   #need this because GPU server keeps going down and scripts fail
+
 LOGGER=None
 
 def main():
     '''to call this script
-    python3 finetune_triplet_anchor_positive_negative.py --num_epochs 1 --resume y --mode a --modelname sentence-transformers/multi-qa-mpnet-base-cos-v1 --batch_size 32
+    python3 finetune_triplet_anchor_positive_negative.py --num_epochs 1 --resume y --mode a --modelname sentence-transformers/multi-qa-mpnet-base-cos-v1 --batch_size 32 --loss CircleLoss
     '''
 
     global LOGGER
@@ -19,6 +23,8 @@ def main():
     parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
     parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
     parser.add_argument('--batch_size', type=str, default='32', help='batch size for model (default: "32")')  
+    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss'],default='CircleLoss', help='loss function, CircleLoss is custom (default: "CircleLoss")')  
+
 
     argsp = parser.parse_args()
 
@@ -38,7 +44,7 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f"models/{modelname}_triplet_legal/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f"models/{modelname}/{argsp.loss}/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
         #experiment, try hard negatives after training on MRRL loss
         # LOGGER.info(f"EXPERIMENT--Loading finetuned model {modelname}_posanchor_legal and then training it using triplet loss for {argsp.num_epochs}")
         # model = SentenceTransformer(f"models/{modelname}_posanchor_legal/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
@@ -49,7 +55,6 @@ def main():
     # test_dataset = load_dataset("json", data_files="../data/tst_with_hard_negatives.json", split="train")
     test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
  
-  
     # generate data for informationretreival evaluator
     corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
  
@@ -62,32 +67,33 @@ def main():
     # eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset,corpus_mapper)
     test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset,corpus_mapper)
 
-    print(f'Length of corpus_dataset={len(corpus_dataset)}')
-    # print(f'Length of eval_queries={len(eval_queries)}, length of eval_relevant_docs={len(eval_relevant_docs)}')
-    print(f'Length of test_queries={len(test_queries)}, length of test_relevant_docs={len(test_relevant_docs)}')
-    print(f'Length of train_dataset={len(train_dataset)}')
-
     # drop the id column from the datasets
     train_dataset = train_dataset.remove_columns(["id"])
     eval_dataset = eval_dataset.remove_columns(["id"])
     test_dataset = test_dataset.remove_columns(["id"])
 
     # 4. Define a loss function
-    loss = TripletLoss(model=model)
+    if argsp.loss=='MultipleNegativesRankingLoss':
+        loss = losses.MultipleNegativesRankingLoss(model)   
+    elif argsp.loss=='CircleLoss':
+        loss = CircleLoss(model=model,distance_metric=TripletDistanceMetric.COSINE)
+    else:
+        loss = TripletLoss(model=model,distance_metric=TripletDistanceMetric.COSINE)   
+    LOGGER.info(f"Using loss function {loss.__class__.__name__}")
 
-    def compute_metrics(p):    
-        pred, labels = p
-        pred = np.argmax(pred, axis=1)
-        accuracy = accuracy_score(y_true=labels, y_pred=pred)
-        recall = recall_score(y_true=labels, y_pred=pred)
-        precision = precision_score(y_true=labels, y_pred=pred)
-        f1 = f1_score(y_true=labels, y_pred=pred)    
-        return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
+    # def compute_metrics(p):    
+    #     pred, labels = p
+    #     pred = np.argmax(pred, axis=1)
+    #     accuracy = accuracy_score(y_true=labels, y_pred=pred)
+    #     recall = recall_score(y_true=labels, y_pred=pred)
+    #     precision = precision_score(y_true=labels, y_pred=pred)
+    #     f1 = f1_score(y_true=labels, y_pred=pred)    
+    #     return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
 
     # 5. (Optional) Specify training arguments
     args = SentenceTransformerTrainingArguments(
         # Required parameter:
-        output_dir=f"models/{modelname}_triplet_legal",
+        output_dir=f"models/{modelname}",
         # Optional training parameters:
         num_train_epochs=argsp.num_epochs,
         per_device_train_batch_size=int(argsp.batch_size),
@@ -98,13 +104,11 @@ def main():
         bf16=False,  # Set to True if you have a GPU that supports BF16
         # batch_sampler=BatchSamplers.NO_DUPLICATES,  # MultipleNegativesRankingLoss benefits from no duplicate samples in a batch
         # Optional tracking/debugging parameters:
-        save_total_limit = 2, # Only last 5 models are saved. Older ones are deleted.
+        save_total_limit = 2, # Only last 2 models are saved. Older ones are deleted.
         eval_strategy="epoch",
-        # eval_steps=100,
         save_strategy="epoch",
-        # save_steps=100,
         logging_steps=100,
-        run_name=f"{modelname}_triplet",  # Will be used in W&B if `wandb` is installed
+        run_name=f"{modelname}",  # Will be used in W&B if `wandb` is installed
         # metric_for_best_model = 'NDCG@10',
         # greater_is_better=True,
         load_best_model_at_end = True,
@@ -124,12 +128,9 @@ def main():
     #     name=f"{modelname}",
     # )
 
-    LOGGER.info(f"---------TEST SET Triplet-Base {modelname} performance:")
     res=test_evaluator(model)
-    LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
-    LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
-    LOGGER.info(f"{modelname}_cosine_map@100:{res[modelname+'_cosine_map@100']}")
-
+    ut.log_performance(res, LOGGER, modelname,loss.__class__.__name__,info="TEST SET, NOT finetuned")
+ 
     # 7. Create a trainer & train
     trainer = SentenceTransformerTrainer(
         model=model,
@@ -142,19 +143,15 @@ def main():
     )
     trainer.train()
 
-    LOGGER.info(f"--------- TEST SET Triplet-After pretraining {modelname} performance:")
+    LOGGER.info(f"--------- TEST SET {loss.__class__.__name__}-After pretraining {modelname} performance:")
     res=test_evaluator(model)
-    LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
-    LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
-    LOGGER.info(f"{modelname}_cosine_map@100:{res[modelname+'_cosine_map@100']}")
-    LOGGER.info(f'---------')
-
-
+    ut.log_performance(res, LOGGER, modelname,loss.__class__.__name__,info="TEST SET, after finetuned")
+ 
     # 8. Save the trained model
-    model.save_pretrained(f"./models/{modelname}_triplet_legal/final")
+    model.save_pretrained(f"./models/{modelname}/{loss.__class__.__name__}/final")
 
     # 9. (Optional) Push it to the Hugging Face Hub
-    # model.push_to_hub(f"{ut.modelname.split('/')[-1]}_triplet_legal",exist_ok=True)
+    # model.push_to_hub(f"{ut.modelname.split('/')[-1]}_{loss.__class__.__name__}",exist_ok=True)
 
     ut.log_execution_time(LOGGER,startTime)
 

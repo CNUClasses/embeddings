@@ -6,8 +6,9 @@ random.seed(42)
 transformers.set_seed(42)
 
 #hugging face login from environmental variable set in .bash_profile
-from huggingface_hub import login
-login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=True)  # ADD YOUR TOKEN HERE
+def login_hf():
+    from huggingface_hub import login
+    login(token=f"{os.environ.get('HUGGING_FACE_TOKEN')}", add_to_git_credential=True)  # ADD YOUR TOKEN HERE
 
 # modelname='sentence-transformers/multi-qa-MiniLM-L6-dot-v1' #not normalized, suitable for dot product not cosign similarity 
 # modelname='sentence-transformers/multi-qa-MiniLM-L6-cos-v1'  #cosign similarity
@@ -61,7 +62,7 @@ def drop_duplicate_rows(df, col,verbose=True):
         df = df.drop_duplicates(subset=[col])
     df.reset_index(drop=True, inplace=True)
     if(verbose==True):
-        print(f'dropped {nr - len(df)} duplicate rows. have {len(df)} rows left')
+        print(f'Length ds before dropping duplicates:{nr} rows, dropped {nr - len(df)} duplicate rows. {len(df)} rows remain')
     return df
 
 #to convert dataset column type
@@ -151,16 +152,9 @@ def get_corpus_and_corpus_mapper(trn:Dataset, eval:Dataset, tst:Dataset, dup_col
     # Concatenate the datasets
     corpus_dataset = concatenate_datasets([trn, eval, tst])
 
-    # Drop duplicates
-    if(verbose==True):
-        print(f'len(corpus_dataset) before dropping duplicates:{len(corpus_dataset)}')
-
     ds = pd.DataFrame(corpus_dataset)
     ds = drop_duplicate_rows(ds, dup_col,verbose)  # Drop all rows that have duplicates in the positive column
     corpus_dataset = datasets.Dataset.from_pandas(ds, preserve_index=False)
-
-    if(verbose==True):
-        print(f'len(corpus_dataset) after dropping duplicates:{len(corpus_dataset)}')
 
     # Create a dictionary mapping positive values to their corresponding IDs
     corpus_mapper = dict(zip(corpus_dataset['positive'], corpus_dataset['id']))
@@ -212,3 +206,15 @@ def log_execution_time(logger, startTime):
     elapsed_time = time.time()-startTime 
     minutes, seconds = divmod(elapsed_time, 60)
     logger.info(f"Execution time: {int(minutes)} minutes and {seconds:.2f} seconds\n")
+
+def log_performance(res, logger, modelname:str, loss:str, info=""):
+    '''
+    logs performance metrics
+    '''
+    logger.info(f"{info}:  model:{modelname} loss:{loss}")
+    logger.info(f"cosine_ndcg@10    : {res[modelname+'_cosine_ndcg@10']:.2f}")
+    logger.info(f"cosine_mrr@10     : {res[modelname+'_cosine_mrr@10']:.2f}")
+    logger.info(f"cosine_map@100    : {res[modelname+'_cosine_map@100']:.2f}")
+    logger.info(f"cosine_accuracy@1 : {res[modelname+'_cosine_accuracy@1']:.2f}")
+    logger.info(f"cosine_accuracy@5 : {res[modelname+'_cosine_accuracy@5']:.2f}")
+    logger.info(f"cosine_accuracy@10: {res[modelname+'_cosine_accuracy@10']:.2f}\n")

@@ -2,6 +2,9 @@
 
 from myimports import *
 import utils as ut
+
+ut.login_hf()   #need this because GPU server keeps going down and scripts fail
+
 from transformers.trainer_callback import EarlyStoppingCallback
 LOGGER=None
 
@@ -37,9 +40,8 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f'./models/{modelname}_posanchor_legal/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
-        # model = SentenceTransformer(f'./models/{modelname}_triplet/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
-
+        model = SentenceTransformer(f'./models/{modelname}/pos_anchor/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
+ 
     # 3. Load a dataset to finetune on
     train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")
     eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
@@ -54,7 +56,7 @@ def main():
     )  # Our corpus (cid => document)
 
     #get queries and relevant docs
-    eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset,corpus_mapper)
+    # eval_queries,eval_relevant_docs=ut.get_queries_and_relevant_docs(eval_dataset,corpus_mapper)
     test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset,corpus_mapper)
 
     # drop the id column from the datasets (otherwise they will be considered as inputs
@@ -69,7 +71,7 @@ def main():
     # 5. (Optional) Specify training arguments
     args = SentenceTransformerTrainingArguments(
         # Required parameter:
-        output_dir=f"./models/{modelname}_posanchor_legal",
+        output_dir=f"./models/{modelname}",
         # Optional training parameters:
         num_train_epochs=argsp.num_epochs,
         per_device_train_batch_size=int(argsp.batch_size),
@@ -84,21 +86,21 @@ def main():
         eval_steps=100,
         save_strategy="steps",
         save_steps=100,
-        save_total_limit=2,
         logging_steps=100,
+        save_total_limit=2, #limit number of checkpoints to 2
         run_name=f"{modelname}",  # Will be used in W&B if `wandb` is installed, also saves in ./models as modelname
 
         # metric_for_best_model = 'NDCG@10',
         # greater_is_better=True,
-        # load_best_model_at_end = True,  #for early stopping
+        load_best_model_at_end = True,  #for early stopping
     )
 
     # 6. Evaluaters (for eval and test datasets)
-    eval_evaluator = InformationRetrievalEvaluator(
-        queries=eval_queries,
-        corpus=corpus,
-        relevant_docs=eval_relevant_docs,
-        name=modelname,)
+    # eval_evaluator = InformationRetrievalEvaluator(
+    #     queries=eval_queries,
+    #     corpus=corpus,
+    #     relevant_docs=eval_relevant_docs,
+    #     name=modelname,)
 
     test_evaluator = InformationRetrievalEvaluator(
         queries=test_queries,
@@ -106,19 +108,9 @@ def main():
         relevant_docs=test_relevant_docs,
         name=modelname,)
 
-    LOGGER.info(f"***TEST SET  Base {modelname} performance:")
     res=test_evaluator(model)
-    LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
-    LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
-    LOGGER.info(f"{modelname}_cosine_map@100:{res[modelname+'_cosine_map@100']}")
-    LOGGER.info(f'---------')
-
-    # LOGGER.info(f"---------EVAL SET  Base {modelname} performance:")
-    # res=eval_evaluator(model)
-    # LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
-    # LOGGER.info(f"{modelname}_NDCG@10:{res[modelname+'_cosine_mrr@10']}")
-    # LOGGER.info(f'---------')
-
+    ut.log_performance(res, LOGGER, modelname,'MNRL',info="TEST SET, NOT finetuned")
+ 
     # 7. Create a trainer & train
     trainer = SentenceTransformerTrainer(
         model=model,
@@ -132,23 +124,16 @@ def main():
     )
     trainer.train()
 
-    LOGGER.info(f"--------- TEST SET-After pretraining {modelname} performance:")
     res=test_evaluator(model)
-    LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
-    LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
-    LOGGER.info(f"{modelname}_cosine_map@100:{res[modelname+'_cosine_map@100']}")
-
-    # LOGGER.info(f"---------EVAL SET-After pretraining {modelname} performance:")
-    # res=eval_evaluator(model)
-    # LOGGER.info(f"{modelname}_cosine_ndcg@10:{res[modelname+'_cosine_ndcg@10']}")
-    # LOGGER.info(f"{modelname}_cosine_mrr@10:{res[modelname+'_cosine_mrr@10']}")
-    # LOGGER.info(f'---------')
-
-
+    ut.log_performance(res, LOGGER, modelname,'MNRL',info="TEST SET after finetuning")
+ 
+    #res=eval_evaluator(model)
+    #ut.log_performance(res, LOGGER, modelname,info=" EVAL SET after finetuning")
+ 
     ut.log_execution_time(LOGGER,startTime)
 
     # 8. Save the trained model
-    model.save_pretrained(f"./models/{modelname}_posanchor_legal/final")
+    model.save_pretrained(f"./models/{modelname}/pos_anchor/final")
 
 if __name__ == "__main__":
     main()

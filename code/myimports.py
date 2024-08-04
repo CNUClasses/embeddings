@@ -16,6 +16,7 @@ from sentence_transformers import (
     SentenceTransformerModelCardData,
 )
 from sentence_transformers.losses import TripletLoss
+from sentence_transformers.losses.TripletLoss import TripletDistanceMetric
 from sentence_transformers.training_args import BatchSamplers
 from sentence_transformers.evaluation import TripletEvaluator
 from sentence_transformers.evaluation import InformationRetrievalEvaluator

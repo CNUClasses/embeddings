@@ -2,6 +2,8 @@ from sentence_transformers import SentenceTransformer
 from datasets import load_dataset
 from myimports import *
 import utils as ut
+ut.login_hf()   #need this because GPU server keeps going down and scripts fail
+
 
 from sentence_transformers.util import mine_hard_negatives
 from minehardnegativesextended_function import mine_hard_negatives_extended
@@ -39,7 +41,7 @@ def get_hn_dataset(ds:"Dataset", corpus_dataset:"Dataset"):
             margin=0,  #gurantees that the negative is always further away than the positive
             num_negatives=3,
             sampling_strategy="random",
-            batch_size=ut.batch_size,
+            batch_size=128,
             use_faiss=False,
             verbose=True,
         )

@@ -103,21 +103,16 @@ def main():
     LOGGER = ut.setup_logger(modelname, argsp.mode)
     startTime = time.time()
 
+    LOGGER.info(f"/nReranking; model: {argsp.modelname}, reranker: {argsp.crossencoder}, localmodel: {argsp.localmodel}, loss: {argsp.loss}")  
+
     if(argsp.localmodel=='n'):
         #get uploaded fine tuned embedder
         print("model from hugging face hub")
-        if(argsp.loss=='pos_anchor'):
-            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_posanchor_legal",device='cpu')
-        else:
-            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_triplet_legal",device='cpu')
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_{argsp.loss}_legal",device='cpu')
     else:
         #or from a local model
         print("model from local disk")
-        if(argsp.loss=='pos_anchor'):
-            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}_posanchor_legal/final",trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",)
-        else:
-            st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}_triplet_legal/final",trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",) #for triplets
-        # st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/final",device='cpu')   #for non triplet models
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{argsp.loss}/final",trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",)
     
     # Create a new chroma collection
     st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
@@ -132,12 +127,12 @@ def main():
     ts_reranked = track_stats(test_dataset,corpus_mapper, argsp.loss+" reranked")
 
     #this is not fine tuned!
-    # RERANKER = CrossEncoder(argsp.crossencoder)
+    RERANKER = CrossEncoder(argsp.crossencoder)
 
-    #test finetuned jobbie
-    model='cross-encoder/ms-marco-MiniLM-L-12-v2'
-    model_save_path = f"./models/finetuned_{model.replace('/','-')}"
-    RERANKER = CrossEncoder(model_save_path)
+    # #test finetuned jobbie
+    # model='cross-encoder/ms-marco-MiniLM-L-12-v2'
+    # model_save_path = f"./models/finetuned_{model.replace('/','-')}"
+    # RERANKER = CrossEncoder(model_save_path)
 
     #gives worse scores on better models, not worth it
     # from ragatouille import RAGPretrainedModel
@@ -160,7 +155,7 @@ def main():
         scores = RERANKER.predict([(test_dataset['anchor'][i], doc) for doc in res_list])
         res_list_reranked=[x for _, x in sorted(zip(scores, results["documents"][i]), key=lambda pair: pair[0], reverse=True)]
 
-        # ragatouille reranker, dont bother
+        # ragatouille reranker, dont bother worse than ms_marco
         # res_list_reranked=[res['content'] for res in RERANKER.rerank(test_dataset['anchor'][i], res_list,k=10)]
         ts_reranked(i, res_list_reranked)
     
