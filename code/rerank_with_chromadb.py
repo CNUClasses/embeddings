@@ -26,11 +26,12 @@ class track_stats:
     - print_stats(self): Prints the statistics.
     """
 
-    def __init__(self, test_dataset, corpus_mapper, mode):
+    def __init__(self, test_dataset, corpus_mapper, loss, crossencoder):
         self.test_dataset = test_dataset
         self.corpus_mapper = corpus_mapper
         self.stats = defaultdict(int) #defaults to 0
-        self.mode = mode
+        self.loss = loss
+        self.crossencoder=crossencoder
 
     def __call__(self, i, res_list):
         """
@@ -58,9 +59,8 @@ class track_stats:
         if(correct_doc in docs[:10]):
             self.stats['correct@10'] += 1
         
-
     def print_stats(self,logger):
-        logger.info(f"Statistics for {self.mode} mode")
+        logger.info(f"Statistics for {self.loss} loss and {self.crossencoder} crossencoder")
         total=self.stats['totals']
         logger.info(f"self.stats['correct@0'] {self.stats['correct@0']} out of {total} for accuracy of {(self.stats['correct@0']/total)*100:.2f} %")
         logger.info(f"self.stats['correct@5'] {self.stats['correct@5']} out of {total} for accuracy of {(self.stats['correct@5']/total)*100:.2f} %")
@@ -77,7 +77,7 @@ def main():
     # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
     parser.add_argument('--localmodel', type=str, choices=['y', 'n'], default='y', help='get model locally or from hugging face: "y" local, "n" hugging face (default: "y")')  
-    parser.add_argument('--loss', type=str, choices=['pos_anchor', 'triplet'], default='triplet', help='loss that model used: "pos_anchor" for MRRL model, "triplet" for triplet loss model (default: "triplet")')  
+    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss'],default='TripletLoss', help='loss function, CircleLoss is custom (default: "TripletLoss")')  
     parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
     parser.add_argument('--crossencoder', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
 
@@ -123,11 +123,11 @@ def main():
         ids=[str(id) for id in list(corpus.keys())])
    
     #stat tracker    
-    ts_original = track_stats(test_dataset,corpus_mapper, argsp.loss)
-    ts_reranked = track_stats(test_dataset,corpus_mapper, argsp.loss+" reranked")
+    ts_original = track_stats(test_dataset,corpus_mapper, argsp.loss, argsp.crossencoder)
+    ts_reranked = track_stats(test_dataset,corpus_mapper, argsp.loss+" reranked", argsp.crossencoder)
 
     #this is not fine tuned!
-    RERANKER = CrossEncoder(argsp.crossencoder)
+    RERANKER = CrossEncoder(argsp.crossencoder,num_labels = 1)
 
     # #test finetuned jobbie
     # model='cross-encoder/ms-marco-MiniLM-L-12-v2'
@@ -142,7 +142,7 @@ def main():
     results = st_collection.query(
         # query_texts=test_dataset[0]['anchor'], #query single text
         query_texts=test_dataset['anchor'],  # Query all texts
-        n_results=30    #10 results per query
+        n_results=50    #10 results per query
     )
 
     # rerank the results with original query and documents returned from Chroma

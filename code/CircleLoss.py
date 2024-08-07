@@ -15,7 +15,7 @@ from sentence_transformers.losses.TripletLoss import TripletDistanceMetric
 
 class CircleLoss(nn.Module):
     def __init__(
-        self, model: SentenceTransformer, distance_metric=TripletDistanceMetric.COSINE, scale:float=32, margin:float=0.25
+        self, model: SentenceTransformer, distance_metric=TripletDistanceMetric.COSINE, scale:float=64.0, margin:float=0.45
     ) -> None:
         # from 
         """
@@ -91,23 +91,25 @@ class CircleLoss(nn.Module):
         # neg_pair_ = sim_mat[neg_mask == 1]
 
         reps = [self.model(sentence_feature)["sentence_embedding"] for sentence_feature in sentence_features]
-        rep_anchor, rep_pos, rep_neg = reps
+        anchor, positive, negative = reps
 
         if(self.distance_metric == TripletDistanceMetric.COSINE):
-            rep_anchor = F.normalize(rep_anchor, p=2, dim=1)
-            rep_pos = F.normalize(rep_pos, p=2, dim=1)
-            rep_neg = F.normalize(rep_neg, p=2, dim=1)
+            anchor = F.normalize(anchor, p=2, dim=1)
+            positive = F.normalize(positive, p=2, dim=1)
+            negative = F.normalize(negative, p=2, dim=1)
             
-        pos_pair_ = self.distance_metric(rep_anchor, rep_pos)
-        neg_pair_ = self.distance_metric(rep_anchor, rep_neg)
+        # pos_pair_ = self.distance_metric(anchor, positive)
+        # neg_pair_ = self.distance_metric(anchor, negative)
+        pos_pair_ = self.distance_metric(anchor, positive).mean()
+        neg_pair_ = self.distance_metric(anchor, negative).mean()
 
-        alpha_p = torch.relu(-pos_pair_ + 1 + self.margin)
-        alpha_n = torch.relu(neg_pair_ + self.margin)
-        margin_p = 1 - self.margin
-        margin_n = self.margin
-        loss_p = torch.sum(torch.exp(-self.scale * alpha_p * (pos_pair_ - margin_p)))
-        loss_n = torch.sum(torch.exp(self.scale * alpha_n * (neg_pair_ - margin_n)))
+        alpha_p = torch.relu(1+self.margin -pos_pair_ )
+        alpha_n = torch.relu(neg_pair_ -self.margin)
+
+        loss_p = torch.sum(torch.exp(-self.scale * alpha_p * (pos_pair_ - (1-self.margin))))   #loss_p = torch.sum(torch.exp(-self.scale * alpha_p * (pos_pair_ - margin_p)))
+        loss_n = torch.sum(torch.exp(self.scale * alpha_n * (neg_pair_ - self.margin)))
         loss = torch.log(1 + loss_p * loss_n)
+        # return loss.mean()
         return loss
  
     def get_config_dict(self) -> dict[str, Any]:

@@ -38,7 +38,7 @@ def get_hn_dataset(ds:"Dataset", corpus_dataset:"Dataset"):
             range_min=0,  #was 10
             # range_max=50, #was 50
             # max_score=0.,  #was .8
-            margin=0,  #gurantees that the negative is always further away than the positive
+            margin=.1,  #gurantees that the negative is always further away than the positive
             num_negatives=3,
             sampling_strategy="random",
             batch_size=128,

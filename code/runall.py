@@ -5,7 +5,8 @@ import utils as ut
 
 #what model are we using
 modelname='sentence-transformers/msmarco-distilbert-base-v2'
-num_epochs='6'
+# num_epochs='6'
+num_epochs='1'
 batch_size='128'
 
 # modelname='sentence-transformers/multi-qa-mpnet-base-cos-v1'
@@ -26,7 +27,10 @@ batch_size='128'
 # num_epochs='4'
 
 crossencoder='cross-encoder/ms-marco-MiniLM-L-12-v2'  #finetuned does not improve performance 
-# crossencoder='cross-encoder/stsb-roberta-large'
+# crossencoder='cross-encoder/stsb-roberta-large' #POOR PERFORMER
+# crossencoder='Alibaba-NLP/gte-Qwen2-7B-instruct' #huge and crashes
+# crossencoder='BAAI/bge-reranker-base'
+# crossencoder='cross-encoder/nli-deberta-v3-base' #entailment, neutral stuff, need cosine similarity 
 
 
 def run_script(script_name, script_args):
@@ -43,18 +47,23 @@ def run_script(script_name, script_args):
 
 def main():
     scripts_with_args = [
-        # ('finetune_on_anchor_positive.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size]),
-        # ('mine_hard_negatives.py', []),
+        ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss']),
+        ('mine_hard_negatives.py', []),
 
         #circle loss
-        # ('finetune_triplet_anchor_positive_negative.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','n','--modelname', modelname,'--batch_size', batch_size, '--loss','CircleLoss']),
+        # ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','y','--modelname', modelname,'--batch_size', batch_size, '--loss','CircleLoss']),
         # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','CircleLoss','--modelname', modelname,'--crossencoder',crossencoder]),
 
-        #triplet loss
-        ('finetune_triplet_anchor_positive_negative.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','n','--modelname', modelname,'--batch_size', batch_size, '--loss','TripletLoss']),
+        #triplet losses
+        ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','n','--modelname', modelname,'--batch_size', batch_size, '--loss','TripletLoss']),
+        ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','y','--modelname', modelname,'--batch_size', batch_size, '--loss','TripletLossOnlineSemiHNMining']),
+        ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','y','--modelname', modelname,'--batch_size', batch_size, '--loss','TripletLossOnlineHNMining']),
+        
+        #rerankers
         ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','TripletLoss','--modelname', modelname,'--crossencoder',crossencoder]),
-
-        # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder])
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','TripletLossOnlineSemiHNMining','--modelname', modelname,'--crossencoder',crossencoder]),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','TripletLossOnlineHNMining','--modelname', modelname,'--crossencoder',crossencoder]),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder])
     ]
     
     for script, args in scripts_with_args:

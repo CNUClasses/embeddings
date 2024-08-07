@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
     parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
     parser.add_argument('--batch_size', type=str, default='32', help='batch size for model (default: "32")')  
+    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining' ],default='TripletLossOnlineSemiHNMining', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
 
     argsp = parser.parse_args()
 
@@ -40,7 +41,7 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f'./models/{modelname}/pos_anchor/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
+        model = SentenceTransformer(f'./models/{modelname}/{argsp.loss}/final',device="cuda:0" if torch.cuda.is_available() else "cpu",)        
  
     # 3. Load a dataset to finetune on
     train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")

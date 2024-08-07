@@ -34,7 +34,7 @@ def getDatasets(loss:str):
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
     return train_dataset, eval_dataset, test_dataset
 
-def getLossFunction(loss:str):
+def getLossFunction(loss:str, model):
     """
     Returns a loss function based on the given loss type.
 
@@ -48,18 +48,18 @@ def getLossFunction(loss:str):
     None
     """
     # 4. Define a loss function
-    if argsp.loss=='MultipleNegativesRankingLoss':
+    if loss=='MultipleNegativesRankingLoss':
         loss = losses.MultipleNegativesRankingLoss(model)   
-    elif argsp.loss=='CircleLoss':
+    elif loss=='CircleLoss':
         loss = CircleLoss(model=model,distance_metric=TripletDistanceMetric.COSINE)
-    elif argsp.loss=='TripletLossOnlineHNMining':
+    elif loss=='TripletLossOnlineHNMining':
         loss = TripletLossOnlineHNMining(model=model,distance_metric=TripletDistanceMetric.COSINE,triplet_margin= 0.2, OnLineMiningType=OnlineMineingType.HARDNEGATIVE)
-    elif argsp.loss=='TripletLossOnlineSemiHNMining':
+    elif loss=='TripletLossOnlineSemiHNMining':
         loss = TripletLossOnlineHNMining(model=model,distance_metric=TripletDistanceMetric.COSINE,triplet_margin= 0.2, OnLineMiningType=OnlineMineingType.SEMIHARDNEGATIVE)   
     else:
         loss = TripletLoss(model=model,distance_metric=TripletDistanceMetric.COSINE, triplet_margin=.2) 
+    return loss
      
-
 def main():
     '''to call this script
     python3 finetune_triplet_anchor_positive_negative.py --num_epochs 1 --resume y --mode a --modelname sentence-transformers/multi-qa-mpnet-base-cos-v1 --batch_size 32 --loss CircleLoss
@@ -121,7 +121,7 @@ def main():
     test_dataset = test_dataset.remove_columns(["id"])
 
     # 4. Define a loss function
-    loss=getLossFunction(argsp.loss)
+    loss=getLossFunction(argsp.loss, model)
     
     LOGGER.info(f"Using loss function {loss.__class__.__name__}")
 
