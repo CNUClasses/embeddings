@@ -3,15 +3,14 @@ import sys
 import logging
 import utils as ut
 
-#what model are we using
-modelname='sentence-transformers/msmarco-distilbert-base-v2'
-# num_epochs='6'
-num_epochs='1'
-batch_size='128'
+# what model are we using
+# modelname='sentence-transformers/msmarco-distilbert-base-v2'
+# num_epochs='4'
+# # num_epochs='1'
+# batch_size='128'  #can get away with 256 on MNRL but Triplet is 128 only
 
 # modelname='sentence-transformers/multi-qa-mpnet-base-cos-v1'
 # num_epochs='4'
-# batch_size='64'
 # batch_size='32'
 
 #the following is too big for my gpu
@@ -22,9 +21,9 @@ batch_size='128'
 # batch_size='8'
 # num_epochs='1'
 
-# modelname = "dunzhang/stella_en_400M_v5"
-# batch_size='128'
-# num_epochs='4'
+modelname = "dunzhang/stella_en_400M_v5"
+batch_size='128'
+num_epochs='4'
 
 crossencoder='cross-encoder/ms-marco-MiniLM-L-12-v2'  #finetuned does not improve performance 
 # crossencoder='cross-encoder/stsb-roberta-large' #POOR PERFORMER

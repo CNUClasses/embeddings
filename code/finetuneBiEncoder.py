@@ -8,8 +8,6 @@ import utils as ut
 
 from TripletLossOnlineHNMining import TripletLossOnlineHNMining,OnlineMineingType
 
-ut.login_hf()   #need this because GPU server keeps going down and scripts fail
-
 LOGGER=None
 def getDatasets(loss:str):
     """
@@ -87,18 +85,19 @@ def main():
     # 1. Load a model to finetune with 2. (Optional) model card data
     if(argsp.resume=='n'):
         #original
+        ut.login_hf()   #need this because GPU server keeps going down and scripts fail
         print(f"Loading original model {argsp.modelname}")
         # model = SentenceTransformer(argsp.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
-        model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f"models/{modelname}/{argsp.loss}/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
-        # model = SentenceTransformer(f"models/{modelname}/pos_anchor/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f"models/{modelname}/{argsp.loss}/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        # model = SentenceTransformer(f"models/{modelname}/pos_anchor/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
         
         #experiment, try hard negatives after training on MRRL loss
         # LOGGER.info(f"EXPERIMENT--Loading finetuned model {modelname}_posanchor_legal and then training it using triplet loss for {argsp.num_epochs}")
-        # model = SentenceTransformer(f"models/{modelname}_posanchor_legal/final",device="cuda:0" if torch.cuda.is_available() else "cpu",)
+        # model = SentenceTransformer(f"models/{modelname}_posanchor_legal/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
 
     # 3. Load a dataset to finetune on
     train_dataset, eval_dataset, test_dataset = getDatasets(argsp.loss)
