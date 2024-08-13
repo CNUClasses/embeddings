@@ -205,13 +205,13 @@ def setup_logger(modelname, mode='a', verbose=True):
 def log_execution_time(logger, startTime):
     elapsed_time = time.time()-startTime 
     minutes, seconds = divmod(elapsed_time, 60)
-    logger.info(f"Execution time: {int(minutes)} minutes and {seconds:.2f} seconds\n")
+    logger.info(f"Script execution time: {int(minutes)} minutes and {seconds:.2f} seconds\n")
 
 def log_performance(res, logger, modelname:str, loss:str, info=""):
     '''
     logs performance metrics
     '''
-    logger.info(f"{info}:  model:{modelname} loss:{loss}")
+    logger.info(f"{info}")
     logger.info(f"cosine_ndcg@10    : {res[modelname+'_cosine_ndcg@10']:.2f}")
     logger.info(f"cosine_mrr@10     : {res[modelname+'_cosine_mrr@10']:.2f}")
     logger.info(f"cosine_map@100    : {res[modelname+'_cosine_map@100']:.2f}")
@@ -220,7 +220,6 @@ def log_performance(res, logger, modelname:str, loss:str, info=""):
     logger.info(f"cosine_accuracy@10: {res[modelname+'_cosine_accuracy@10']:.2f}\n")
 
 # EDIT 10/04/2022 - This version was provided by @jayelm who fixed some bugs and made the function much more robust
-
 import os
 import subprocess
 import time

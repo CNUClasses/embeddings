@@ -49,7 +49,7 @@ class track_stats:
 
         if correct_doc == original_choice:
             #top choice correct?
-            self.stats['correct@0'] += 1
+            self.stats['correct@1'] += 1
                        
         #in top 5?
         if(correct_doc in docs[:5]):
@@ -62,7 +62,7 @@ class track_stats:
     def print_stats(self,logger):
         logger.info(f"Statistics for {self.loss} loss and {self.crossencoder} crossencoder")
         total=self.stats['totals']
-        logger.info(f"self.stats['correct@0'] {self.stats['correct@0']} out of {total} for accuracy of {(self.stats['correct@0']/total)*100:.2f} %")
+        logger.info(f"self.stats['correct@1'] {self.stats['correct@1']} out of {total} for accuracy of {(self.stats['correct@1']/total)*100:.2f} %")
         logger.info(f"self.stats['correct@5'] {self.stats['correct@5']} out of {total} for accuracy of {(self.stats['correct@5']/total)*100:.2f} %")
         logger.info(f"self.stats['correct@10'] {self.stats['correct@10']} out of {total} for accuracy of {(self.stats['correct@10']/total)*100:.2f} %")
  
@@ -79,12 +79,16 @@ def main():
     parser.add_argument('--localmodel', type=str, choices=['y', 'n'], default='y', help='get model locally or from hugging face: "y" local, "n" hugging face (default: "y")')  
     parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
     parser.add_argument('--crossencoder', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
-    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining' ],default='TripletLossOnlineSemiHNMining', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
+    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining','GISTEmbedLoss' ],default='TripletLossOnlineSemiHNMining', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
+    parser.add_argument('--save_location', type=str, default=None, help='subdirectory where the final model is serialized. If none defaults to the name of the loss function. (default: None )')  
 
     argsp = parser.parse_args()
 
     #what model are we using
     modelname=f"{argsp.modelname.split('/')[-1]}"
+
+    #where will the model be loaded/saved from/to?
+    save_location=argsp.loss if argsp.save_location is None else argsp.save_location
 
     # 3. Load datasets
     train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
@@ -102,8 +106,8 @@ def main():
      # Set up the LOGGER
     LOGGER = ut.setup_logger(modelname, argsp.mode)
     startTime = time.time()
-
-    LOGGER.info(f"/nReranking; model: {argsp.modelname}, reranker: {argsp.crossencoder}, localmodel: {argsp.localmodel}, loss: {argsp.loss}")  
+ 
+    LOGGER.info(f"--RERANKING--- rerank_with_chromadb.py; model:{modelname}, reranker:{argsp.crossencoder}, localmodel:{argsp.localmodel}, loss function:{argsp.loss}")  
 
     if(argsp.localmodel=='n'):
         #get uploaded fine tuned embedder
@@ -112,7 +116,7 @@ def main():
     else:
         #or from a local model
         print("model from local disk")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{argsp.loss}/final",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
     
     # Create a new chroma collection
     st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
@@ -126,18 +130,23 @@ def main():
     ts_original = track_stats(test_dataset,corpus_mapper, argsp.loss, argsp.crossencoder)
     ts_reranked = track_stats(test_dataset,corpus_mapper, argsp.loss+" reranked", argsp.crossencoder)
 
-    #this is not fine tuned!
-    RERANKER = CrossEncoder(argsp.crossencoder,num_labels = 1)
+    #this is not fine tuned!  Also requires a http connection, so not good for a server that cycles every 40 minutes
+    # RERANKER = CrossEncoder(argsp.crossencoder,num_labels = 1)
 
     # #test finetuned jobbie
     # model='cross-encoder/ms-marco-MiniLM-L-12-v2'
     # model_save_path = f"./models/finetuned_{model.replace('/','-')}"
     # RERANKER = CrossEncoder(model_save_path)
 
-    #gives worse scores on better models, not worth it
+    #ragatouille gives worse scores on better models, not worth it
     # from ragatouille import RAGPretrainedModel
     # RERANKER = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0", verbose=0)
 
+    #Flag embeddings
+    from FlagEmbedding import FlagReranker
+    RERANKER = FlagReranker(argsp.crossencoder, use_fp16=True)
+    # RERANKER = FlagReranker(argsp.crossencoder, )
+ 
     #get matches for all queries
     results = st_collection.query(
         # query_texts=test_dataset[0]['anchor'], #query single text
@@ -152,7 +161,8 @@ def main():
         ts_original(i, res_list)
 
         #reranked for standard rerankers
-        scores = RERANKER.predict([(test_dataset['anchor'][i], doc) for doc in res_list])
+        scores = RERANKER.compute_score([(test_dataset['anchor'][i], doc) for doc in res_list])  #for Flag embeddings
+        # scores = RERANKER.predict([(test_dataset['anchor'][i], doc) for doc in res_list])
         res_list_reranked=[x for _, x in sorted(zip(scores, results["documents"][i]), key=lambda pair: pair[0], reverse=True)]
 
         # ragatouille reranker, dont bother worse than ms_marco

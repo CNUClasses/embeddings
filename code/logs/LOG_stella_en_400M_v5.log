@@ -1,0 +1,60 @@
+--FINETUNING -- finetunebiencoder.py; model:stella_en_400M_v5, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:128
+TEST SET, NOT finetuned
+cosine_ndcg@10    : 0.57
+cosine_mrr@10     : 0.52
+cosine_map@100    : 0.53
+cosine_accuracy@1 : 0.43
+cosine_accuracy@5 : 0.63
+cosine_accuracy@10: 0.71
+
+TEST SET, after finetuned
+cosine_ndcg@10    : 0.94
+cosine_mrr@10     : 0.93
+cosine_map@100    : 0.93
+cosine_accuracy@1 : 0.89
+cosine_accuracy@5 : 0.98
+cosine_accuracy@10: 0.99
+
+Script execution time: 114 minutes and 8.26 seconds
+
+--RERANKING--- rerank_with_chromadb.py; model:stella_en_400M_v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
+Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 2339 out of 2641 for accuracy of 88.56 %
+self.stats['correct@5'] 2585 out of 2641 for accuracy of 97.88 %
+self.stats['correct@10'] 2599 out of 2641 for accuracy of 98.41 %
+Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1917 out of 2641 for accuracy of 72.59 %
+self.stats['correct@5'] 2410 out of 2641 for accuracy of 91.25 %
+self.stats['correct@10'] 2508 out of 2641 for accuracy of 94.96 %
+Script execution time: 7 minutes and 18.49 seconds
+
+--FINETUNING -- finetunebiencoder.py; model:stella_en_400M_v5, loss function:TripletLoss, num_epochs:2, batch_size:128
+TEST SET, NOT finetuned
+cosine_ndcg@10    : 0.57
+cosine_mrr@10     : 0.52
+cosine_map@100    : 0.53
+cosine_accuracy@1 : 0.43
+cosine_accuracy@5 : 0.63
+cosine_accuracy@10: 0.71
+
+TEST SET, after finetuned
+cosine_ndcg@10    : 0.80
+cosine_mrr@10     : 0.76
+cosine_map@100    : 0.76
+cosine_accuracy@1 : 0.66
+cosine_accuracy@5 : 0.88
+cosine_accuracy@10: 0.93
+
+Script execution time: 103 minutes and 14.46 seconds
+
+--RERANKING--- rerank_with_chromadb.py; model:stella_en_400M_v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:TripletLoss
+Statistics for TripletLoss loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1736 out of 2641 for accuracy of 65.73 %
+self.stats['correct@5'] 2313 out of 2641 for accuracy of 87.58 %
+self.stats['correct@10'] 2425 out of 2641 for accuracy of 91.82 %
+Statistics for TripletLoss reranked loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1876 out of 2641 for accuracy of 71.03 %
+self.stats['correct@5'] 2358 out of 2641 for accuracy of 89.28 %
+self.stats['correct@10'] 2451 out of 2641 for accuracy of 92.81 %
+Script execution time: 7 minutes and 19.07 seconds
+
