@@ -4,56 +4,52 @@
 This report outlines key strategies and recommendations for improving the performance of semantic search and retrieval systems, particularly focusing on data preparation, model selection and training procedures for bi and cross encoders on the Hugging Face platform.
 
 ## Python files of interest
-./data/convert_to_json.ipynb - notebook to convert datasets to appropriate formats
-./code/runall.py - script that drives testing model/loss combinations
-./code/finetuneBiEncoder.py - trains a biencoder that generates embeddings
-./code/rerank_with_chromadb.py - uses biencoder above to generate embeddings, pushes them to chromadb,, then evaluates test set on chromadb.  Pulls results per query, then reranks results using reranker
-./code/logs folder - contains logs of training reranking runs
+./data/convert_to_json.ipynb - notebook to convert datasets to appropriate formats<br>
+./code/runall.py - script that drives testing model/loss combinations<br>
+./code/finetuneBiEncoder.py - trains a biencoder that generates embeddings<br>
+./code/rerank_with_chromadb.py - uses biencoder above to generate embeddings, pushes them to chromadb,, then evaluates test set on chromadb.  Pulls results per query, then reranks results using reranker<br>
+./code/logs folder - contains logs of training reranking runs<br>
 
 ## Install requirements
-clone FLAG repo for hard negative mining and finetuning cross encoder
-Faiss- a library for efficient similarity search and clustering of dense vectors, used by FLAG to embed contexts, 
-see requirements.txt
+clone FLAG repo for hard negative mining and finetuning cross encoder<br>
+Faiss- a library for efficient similarity search and clustering of dense vectors, used by FLAG to embed contexts<br>
+see requirements.txt<br>
 
 ## Data Preparation
--see ./data/???.ipynb for data prep notebook.
-- Remove small contexts (1 or 2 words, typically section titles).
-- Chunk the data <mark>taking care to match model context width to chunk size</mark>. Keep in mind that RAG systems use 2 models, 1 to embed and 1 to rerank.  The embedding model takes 1 sequence at a time, the reranker takes 2; a query and a context.  Ensure typical query length (in tokens) plus maximum chunk sequence length (in tokens) does not exceed the reranker models maximum sequence length.  If it does the reranker will truncate the extra tokens.
+-see ./data/convert_to_json.ipynb - notebook to convert datasets to appropriate formats<br>
+- Remove small contexts (1 or 2 words, typically section titles).<br>
+- Chunk the data <mark>taking care to match model context width to chunk size</mark>. Keep in mind that RAG systems use 2 models, 1 to embed and 1 to rerank.  The embedding model takes 1 sequence at a time, the reranker takes 2; a query and a context.  Ensure typical query length (in tokens) plus maximum chunk sequence length (in tokens) does not exceed the reranker models maximum sequence length.  If it does the reranker will truncate the extra tokens.<br>
 
 ## Model Selection
--see ./code/runall.py for model test scripts
-- Consult the <a href=’https://huggingface.co/spaces/mteb/leaderboard’> MTEB leaderboard< /a> for top models.  Be aware though that these scores are self reported and many models have been trained on datasets that are used to determine leaderboard position.
--Search <a href=’https://huggingface.co/models?pipeline_tag=sentence-similarity&sort=trending’>semantic_similarity models</a>for  hugging face offerings.
-- Larger models generally perform better.
--Mind the default params, some use cosine similarity some use dot product.
-- For RAG (Retrieval-Augmented Generation), prioritize models that excel at 'semantic similarity'.
--Smaller finetuned models are both cost effective and beat bigger general purpose LLMs (except for GPT-4), see ‘A Thorough Comparison of Cross-Encoders and LLMs for Reranking SPLADE’
+-see ./code/runall.py - various models tested<br>
+- Consult the <a href='https://huggingface.co/spaces/mteb/leaderboard'> MTEB leaderboard< /a> for top models.  Be aware though that these scores are self reported, many models have been trained on the same datasets that used to determine leaderboard position.<br>
+-Search <a href='https://huggingface.co/models?pipeline_tag=sentence-similarity&sort=trending'>semantic_similarity models</a>for  hugging face offerings.<br>
+- Larger models generally perform better.<br>
+-Mind the default params, some use cosine similarity some use dot product.<br>
+-For RAG (Retrieval-Augmented Generation), prioritize models that excel at 'semantic similarity'.<br>
+-Smaller finetuned models are both cost effective and beat bigger general purpose LLMs (except for GPT-4), see ‘A Thorough Comparison of Cross-Encoders and LLMs for Reranking SPLADE’<br>
 
 ## Loss Function
--see ./code/runall.py multiple loss functions were tried including 3 custom losses.
--<mark> Multiple Negative Ranking Loss (MNRL) is recommended for faster training and better performance.
-- Ensure consistency in distance metrics (e.g., cosine similarity) across model training and inference.
-- You must use NoDuplicatesDataLoader when using MNRL.
-
-Loss Selection
-- MNRL (Multiple Negatives Ranking Loss) on legal datasets.
-- Enhance MNRL performance by building triplets offline and providing them as inputs.
+-see ./code/runall.py - multiple loss functions were tried including 3 custom losses.<br>
+-<mark> Multiple Negative Ranking Loss (MNRL) is recommended for faster training and better performance.<br>
+- Ensure consistency in distance metrics (e.g., cosine similarity) across model training and inference.<br>
+- You must use NoDuplicatesDataLoader when using MNRL.</mark><br>
 
 
 ## Training Biencoder
--see ./code/finetunebiencoder.py
-<mark>Model performance is greatly improved by following this regime:
-1. Train model A (biencoder) on anchor-positive pairs with MNRL.
-2. Offline mine hard negatives (HN) using model A
-3 Retrain model A with expanded dataset including HNs with MNRL.
-Loop on steps 2 and 3 to get better hard negatives.</mark>
+-see ./code/finetunebiencoder.py<br>
+<mark>Model performance is greatly improved by following this regime:<br>
+1. Train model A (biencoder) on anchor-positive pairs with MNRL.<br>
+2. Offline mine hard negatives (HN) using model A<br>
+3 Retrain model A with expanded dataset including HNs with MNRL.<br>
+Loop on steps 2 and 3 to get better hard negatives.</mark><br>
 
 ## Training Cross Encoder (reranker)
-Cross-encoders serve as a second stage in RAG pipelines for reranking results. They generally provide higher accuracy than bi-encoders.  They should be fine tuned if they are going to provide improvement over biencoder selections.
-- see ./code/runall.py for some of the cross encoders tested
-- You must finetune the cross-encoder to get a performance boost when used with a fine tuned bi encoder
-- Choose a cross-encoder at least as big as the bi-encoder.
--See < a href=”fine tuned a FLAG cross encoder. See <a href=”https://github.com/FlagOpen/FlagEmbedding/blob/master/FlagEmbedding/reranker/README.md’>FLAG reranker</a> for training script 
+Cross-encoders serve as a second stage in RAG pipelines for reranking results. They generally provide higher accuracy than bi-encoders.  They should be fine tuned if they are going to provide improvement over biencoder selections.<br>
+- see ./code/runall.py for some of the cross encoders tested.<br>
+- <mark>You must finetune the cross-encoder to get a performance boost when used with a fine tuned bi encoder.</mark><br>
+- Choose a cross-encoder at least as big as the bi-encoder.<br>
+-See <a href='https://github.com/FlagOpen/FlagEmbedding/blob/master/FlagEmbedding/reranker/README.md'>FLAG reranker</a> for training script.<br>
 
 
 ##Mining Hard Negatives
