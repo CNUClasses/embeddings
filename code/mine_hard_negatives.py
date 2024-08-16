@@ -28,7 +28,8 @@ corpus_dataset = concatenate_datasets([train_dataset, eval_dataset, test_dataset
 corpus_dataset=corpus_dataset.remove_columns(["query"])
 
 #load a model to calculate similarities with
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# model = SentenceTransformer("sentence-transformers/multi-qa-mpnet-base-cos-v1")
+model = SentenceTransformer(f"models/multi-qa-mpnet-base-cos-v1/MultipleNegativesRankingLoss/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
 
 def get_hn_dataset(ds:"Dataset", corpus_dataset:"Dataset"):
     dataset = mine_hard_negatives_extended(
@@ -38,8 +39,8 @@ def get_hn_dataset(ds:"Dataset", corpus_dataset:"Dataset"):
             range_min=0,  #was 10
             # range_max=50, #was 50
             # max_score=0.,  #was .8
-            margin=.1,  #gurantees that the negative is always further away than the positive
-            num_negatives=3,
+            margin=0,  #gurantees that the negative is always further away than the positive
+            num_negatives=15,
             sampling_strategy="random",
             batch_size=128,
             use_faiss=False,
@@ -54,10 +55,10 @@ def get_hn_dataset(ds:"Dataset", corpus_dataset:"Dataset"):
     return dataset
 
 trn=get_hn_dataset(train_dataset, corpus_dataset)
-trn.to_json(f'../data/trn_with_hard_negatives.json',orient='records')
+trn.to_json(f'../data/trn_with_hard_negatives1.json',orient='records')
 
 eval=get_hn_dataset(eval_dataset, corpus_dataset)
-eval.to_json(f'../data/eval_with_hard_negatives.json',orient='records')
+eval.to_json(f'../data/eval_with_hard_negatives1.json',orient='records')
 
 test=get_hn_dataset(test_dataset, corpus_dataset).to_json(f'../data/tst_with_hard_negatives.json',orient='records')
 

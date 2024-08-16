@@ -1,4 +1,4 @@
---FINETUNING -- finetunebiencoder.py; model:msmarco-distilbert-cos-v5, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:128
+--FINETUNING -- finetunebiencoder.py; model:msmarco-distilbert-cos-v5, loss function:CachedMultipleNegativesRankingLoss, num_epochs:2, batch_size:256
 TEST SET, NOT finetuned
 cosine_ndcg@10    : 0.45
 cosine_mrr@10     : 0.40
@@ -8,53 +8,23 @@ cosine_accuracy@5 : 0.51
 cosine_accuracy@10: 0.59
 
 TEST SET, after finetuned
-cosine_ndcg@10    : 0.89
-cosine_mrr@10     : 0.86
-cosine_map@100    : 0.86
-cosine_accuracy@1 : 0.79
-cosine_accuracy@5 : 0.95
-cosine_accuracy@10: 0.97
+cosine_ndcg@10    : 0.87
+cosine_mrr@10     : 0.84
+cosine_map@100    : 0.84
+cosine_accuracy@1 : 0.76
+cosine_accuracy@5 : 0.93
+cosine_accuracy@10: 0.96
 
-Script execution time: 84 minutes and 27.01 seconds
+Script execution time: 118 minutes and 23.14 seconds
 
---RERANKING--- rerank_with_chromadb.py; model:msmarco-distilbert-cos-v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
-Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 2089 out of 2641 for accuracy of 79.10 %
-self.stats['correct@5'] 2518 out of 2641 for accuracy of 95.34 %
-self.stats['correct@10'] 2574 out of 2641 for accuracy of 97.46 %
-Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1887 out of 2641 for accuracy of 71.45 %
-self.stats['correct@5'] 2384 out of 2641 for accuracy of 90.27 %
-self.stats['correct@10'] 2481 out of 2641 for accuracy of 93.94 %
-Script execution time: 6 minutes and 47.63 seconds
-
---FINETUNING -- finetunebiencoder.py; model:msmarco-distilbert-cos-v5, loss function:TripletLoss, num_epochs:2, batch_size:128
-TEST SET, NOT finetuned
-cosine_ndcg@10    : 0.45
-cosine_mrr@10     : 0.40
-cosine_map@100    : 0.41
-cosine_accuracy@1 : 0.32
-cosine_accuracy@5 : 0.51
-cosine_accuracy@10: 0.59
-
-TEST SET, after finetuned
-cosine_ndcg@10    : 0.76
-cosine_mrr@10     : 0.71
-cosine_map@100    : 0.71
-cosine_accuracy@1 : 0.60
-cosine_accuracy@5 : 0.86
-cosine_accuracy@10: 0.92
-
-Script execution time: 74 minutes and 44.69 seconds
-
---RERANKING--- rerank_with_chromadb.py; model:msmarco-distilbert-cos-v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:TripletLoss
-Statistics for TripletLoss loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1595 out of 2641 for accuracy of 60.39 %
-self.stats['correct@5'] 2271 out of 2641 for accuracy of 85.99 %
-self.stats['correct@10'] 2429 out of 2641 for accuracy of 91.97 %
-Statistics for TripletLoss reranked loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1869 out of 2641 for accuracy of 70.77 %
-self.stats['correct@5'] 2357 out of 2641 for accuracy of 89.25 %
-self.stats['correct@10'] 2447 out of 2641 for accuracy of 92.65 %
-Script execution time: 6 minutes and 52.55 seconds
+--RERANKING--- rerank_with_chromadb.py; model:msmarco-distilbert-cos-v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:CachedMultipleNegativesRankingLoss
+Statistics for CachedMultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 2022 out of 2641 for accuracy of 76.56 %
+self.stats['correct@5'] 2472 out of 2641 for accuracy of 93.60 %
+self.stats['correct@10'] 2535 out of 2641 for accuracy of 95.99 %
+Statistics for CachedMultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1883 out of 2641 for accuracy of 71.30 %
+self.stats['correct@5'] 2375 out of 2641 for accuracy of 89.93 %
+self.stats['correct@10'] 2476 out of 2641 for accuracy of 93.75 %
+Script execution time: 6 minutes and 39.36 seconds
 

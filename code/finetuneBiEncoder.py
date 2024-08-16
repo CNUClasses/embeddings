@@ -9,12 +9,12 @@ import utils as ut
 from TripletLossOnlineHNMining import TripletLossOnlineHNMining,OnlineMineingType
 
 LOGGER=None
-def getDatasets(loss:str):
+def getDatasets(use_HN_dataset:str):
     """
     Returns the train, eval and test datasets based on the given loss type.
 
     Parameters:
-    loss (str): The type of loss function to be returned.
+    use_HN_dataset (str): Y use hard negative dataset, N use pos,anchor dataset
 
     Returns:
     train_dataset, eval_dataset, test_dataset: The train, eval and test datasets based on the given loss type.
@@ -22,22 +22,26 @@ def getDatasets(loss:str):
     Raises:
     None
     """
-    if loss=='MultipleNegativesRankingLoss':
+    if use_HN_dataset=='N':
         train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")
         eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
     else:
-        train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-        eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
+    #     # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
+    #     # eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
+        train_dataset = load_dataset("json", data_files="../data/trn_FLAG_HN.json", split="train")
+        eval_dataset = load_dataset("json", data_files="../data/eval_FLAG_HN.json", split="train")
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
+
     return train_dataset, eval_dataset, test_dataset
 
-def getLossFunction(loss:str, model):
+def getLossFunction(loss:str, batch_size:int, model):
     """
     Returns a loss function based on the given loss type.
 
     Parameters:
     loss (str): The type of loss function to be returned.
+    batch_size: The batch size to be used in the loss function. Only relevant for CachedMultipleNegativesRankingLoss
 
     Returns:
     loss function: The loss function based on the given loss type.
@@ -47,13 +51,17 @@ def getLossFunction(loss:str, model):
     """
     # 4. Define a loss function
     if loss=='MultipleNegativesRankingLoss':
-        loss = losses.MultipleNegativesRankingLoss(model)   
+        loss = losses.MultipleNegativesRankingLoss(model)  
+    elif loss=='CachedMultipleNegativesRankingLoss':
+        loss = CachedMultipleNegativesRankingLoss(model=model, mini_batch_size=batch_size)   
     elif loss=='CircleLoss':
         loss = CircleLoss(model=model,distance_metric=TripletDistanceMetric.COSINE)
     elif loss=='TripletLossOnlineHNMining':
         loss = TripletLossOnlineHNMining(model=model,distance_metric=TripletDistanceMetric.COSINE,triplet_margin= 0.2, OnLineMiningType=OnlineMineingType.HARDNEGATIVE)
     elif loss=='TripletLossOnlineSemiHNMining':
         loss = TripletLossOnlineHNMining(model=model,distance_metric=TripletDistanceMetric.COSINE,triplet_margin= 0.2, OnLineMiningType=OnlineMineingType.SEMIHARDNEGATIVE)   
+    elif loss=='TripletLossOnlineBoth':
+        loss = TripletLossOnlineHNMining(model=model,distance_metric=TripletDistanceMetric.COSINE,triplet_margin= 0.2, OnLineMiningType=OnlineMineingType.BOTH)           
     else:
         loss = TripletLoss(model=model,distance_metric=TripletDistanceMetric.COSINE, triplet_margin=.2) 
     return loss
@@ -71,12 +79,17 @@ def main():
     parser.add_argument('--resume', type=str, choices=['y', 'n'], default='n', help='resume using previous models ("y") or load original pretrained model ("n") (default: "n")')  
     parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
     parser.add_argument('--batch_size', type=str, default='32', help='batch size for model (default: "32")')  
-    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining' ],default='TripletLossOnlineSemiHNMining', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
+    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining','CachedMultipleNegativesRankingLoss' ],default='TripletLossOnlineSemiHNMining', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
+    parser.add_argument('--use_HN_dataset', type=str, choices=['Y','N' ],default='Y', help='use anchor, positive dataset or anchor,positive,negative dataset (default: "Y")')  
+    parser.add_argument('--save_location', type=str, default=None, help='subdirectory where the final model is serialized. If none defaults to the name of the loss function. (default: None )')  
 
     argsp = parser.parse_args()
 
     # what model are we using
     modelname=f"{argsp.modelname.split('/')[-1]}"
+
+    #where will the model be loaded/saved from/to?
+    save_location=argsp.loss if argsp.save_location is None else argsp.save_location
 
      # Set up the LOGGER
     LOGGER = ut.setup_logger(modelname, argsp.mode)
@@ -92,7 +105,7 @@ def main():
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f"models/{modelname}/{argsp.loss}/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f"models/{modelname}/{save_location}/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
         # model = SentenceTransformer(f"models/{modelname}/pos_anchor/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
         
         #experiment, try hard negatives after training on MRRL loss
@@ -115,14 +128,17 @@ def main():
     test_queries, test_relevant_docs=ut.get_queries_and_relevant_docs(test_dataset,corpus_mapper)
 
     # drop the id column from the datasets
-    train_dataset = train_dataset.remove_columns(["id"])
-    eval_dataset = eval_dataset.remove_columns(["id"])
-    test_dataset = test_dataset.remove_columns(["id"])
+    try:
+        test_dataset = test_dataset.remove_columns(["id"])
+        train_dataset = train_dataset.remove_columns(["id"])
+        eval_dataset = eval_dataset.remove_columns(["id"])      
+    except:
+        pass
 
     # 4. Define a loss function
-    loss=getLossFunction(argsp.loss, model)
+    loss=getLossFunction(argsp.loss, int(argsp.batch_size), model)
     
-    LOGGER.info(f"Using loss function {loss.__class__.__name__}")
+    LOGGER.info(f"--FINETUNING -- finetunebiencoder.py; model:{modelname}, loss function:{argsp.loss}, num_epochs:{argsp.num_epochs}, batch_size:{argsp.batch_size}")
 
     # def compute_metrics(p):    
     #     pred, labels = p
@@ -145,7 +161,7 @@ def main():
         warmup_ratio=0.1,
         fp16=True,  # Set to False if you get an error that your GPU can't run on FP16
         bf16=False,  # Set to True if you have a GPU that supports BF16
-        # batch_sampler=BatchSamplers.NO_DUPLICATES,  # MultipleNegativesRankingLoss benefits from no duplicate samples in a batch
+        batch_sampler=BatchSamplers.NO_DUPLICATES if loss=='MultipleNegativesRankingLoss' else BatchSamplers.BATCH_SAMPLER ,  # MultipleNegativesRankingLoss benefits from no duplicate samples in a batch
         # Optional tracking/debugging parameters:
         save_total_limit = 2, # Only last 2 models are saved. Older ones are deleted.
         eval_strategy="epoch",
@@ -187,15 +203,14 @@ def main():
     )
     trainer.train()
 
-    LOGGER.info(f"--------- TEST SET {loss.__class__.__name__}-After pretraining {modelname} performance:")
     res=test_evaluator(model)
     ut.log_performance(res, LOGGER, modelname,loss.__class__.__name__,info="TEST SET, after finetuned")
  
     # 8. Save the trained model
-    model.save_pretrained(f"./models/{modelname}/{loss.__class__.__name__}/final")
+    model.save_pretrained(f"./models/{modelname}/{save_location}/final")
 
     # 9. (Optional) Push it to the Hugging Face Hub
-    # model.push_to_hub(f"{ut.modelname.split('/')[-1]}_{loss.__class__.__name__}",exist_ok=True)
+    # model.push_to_hub(f"{ut.modelname.split('/')[-1]}_{save_location}",exist_ok=True)
 
     ut.log_execution_time(LOGGER,startTime)
 
