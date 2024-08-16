@@ -10,9 +10,9 @@ This report outlines key strategies and recommendations for improving the perfor
 ./code/rerank_with_chromadb.py - uses biencoder above to generate embeddings, pushes them to chromadb,, then evaluates test set on chromadb.  Pulls results per query, then reranks results using reranker
 ./code/logs folder - contains logs of training reranking runs
 
-## requirements
-clone FLAG repo for hard negative mining and finetuning cross encoders
-Faiss- used by FLAG to embed contexts, a library for efficient similarity search and clustering of dense vectors
+## Install requirements
+clone FLAG repo for hard negative mining and finetuning cross encoder
+Faiss- a library for efficient similarity search and clustering of dense vectors, used by FLAG to embed contexts, 
 see requirements.txt
 
 ## Data Preparation
