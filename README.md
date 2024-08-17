@@ -3,7 +3,6 @@
 ## Summary
 This report outlines key strategies and recommendations for improving the performance of semantic search and retrieval systems, particularly focusing on data preparation, model selection and training procedures for bi and cross encoders on the Hugging Face platform.
 
-## Diagram
 
 ## Python files of interest
 ./data/convert_to_json.ipynb - notebook to convert datasets to appropriate formats<br>
@@ -65,7 +64,7 @@ In any case this report has 3 methods togenerate hard negatives but prefer the 3
 ### Training Hints
 - Use SentenceTransformers for better performance over raw PyTorch.
 - Maximize batch size with MNRL for improved performance.
-- For evaluation, ensure there are no duplicate positives in the corpus (see ./code/utils. get_corpus_and_corpus_mapper function for help with this)
+- For evaluation, ensure there are no duplicate positives in the corpus (see ./code/utils.get_corpus_and_corpus_mapper and get_queries_and_relevant_docs functions for help with this)
 - Ensure training set is properly matched with the above deduplicated corpus.
 
 
