@@ -1,7 +1,9 @@
-# Final Recommendations for Width Project
+# Recommendations for fine tuning RAG systems on Hugging Face biencoders and crossencoders.
 
 ## Summary
 This report outlines key strategies and recommendations for improving the performance of semantic search and retrieval systems, particularly focusing on data preparation, model selection and training procedures for bi and cross encoders on the Hugging Face platform.
+
+## Diagram
 
 ## Python files of interest
 ./data/convert_to_json.ipynb - notebook to convert datasets to appropriate formats<br>
@@ -35,7 +37,7 @@ see requirements.txt<br>
 - You must use NoDuplicatesDataLoader when using MNRL.</mark><br>
 
 
-## Training Biencoder
+## Training Bi encoder
 -see ./code/finetunebiencoder.py<br>
 <mark>Model performance is <b>GREATLY</b> improved by following this regime:<br>
 <mark> 1. Train model A (biencoder) on anchor-positive pairs with MNRL.<br>
