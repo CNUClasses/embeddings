@@ -45,7 +45,7 @@ see requirements.txt<br>
 <mark> Loop on steps 2 and 3 to get better hard negatives.</mark><br>
 
 ## Training Cross Encoder (reranker)
-Cross-encoders serve as a second stage in RAG pipelines for reranking results. They generally provide higher accuracy than bi-encoders.  They should be fine tuned if they are going to provide improvement over biencoder selections.<br>
+Cross-encoders serve as a second stage in RAG pipelines for reranking results. They provide higher accuracy than bi-encoders.  They must be fine tuned if they are going to be used with a fine tuned biencoder as part of a 2 stage RAG system.<br>
 - see ./code/runall.py for cross encoders tested.<br>
 - <mark>You must finetune the cross-encoder to get a performance boost when used with a fine tuned bi encoder.</mark><br>
 - <mark>Choose a cross-encoder at least as big as the bi-encoder.<br>
@@ -53,8 +53,8 @@ Cross-encoders serve as a second stage in RAG pipelines for reranking results. T
 
 
 ## Hard Negatives
-<mark> The mining algorithm should search for more than 1 hard negatives per dataset line.  For this project 15 hard negatives were generated per line which expanded the dataset by a factor of 15. Hard negatives are easy to find, simply train a model using MNRL loss using anchor, positive pairs.  Embed the dataset corpus using this model and add to a vector database. Then use the database to find the closest matches to a particular query. The FLAG hard negative miner has a simple effective implementation of this.</mark><br>
-In any case this report has 3 methods togenerate hard negatives but prefer the 3rd for its ease of use and consistant results:
+<mark> The mining algorithm should search for more than 1 hard negative per dataset line.  For this project 15 hard negatives were generated per line which expanded the dataset by a factor of 15. Hard negatives are easy to find, simply train a model using MNRL loss using anchor, positive pairs.  Embed the dataset corpus using this model and add to a vector database. Then use the database to find the closest matches to a particular query. The FLAG hard negative miner has a simple effective implementation of this.</mark><br>
+This repo has 3 methods to generate hard negatives but prefer the FLAG method (#3) for its ease of use and consistant results:
 1. A custom miner (see ./archive/hard_negative_mining_fast.ipynb) - Works OK
 2. A pre release Hugging Face hard negative miner.  This version had some minor mistakes that were fixed (See ./code/minehardnegativesextended_function.py and mine_hard_negatives.py) – also works OK. It has some options that make it easy to misuse, for instance one to ensure that a negative is further away from the anchor than a positive. The problem is that these are the hardest of the hard negatives and should not be discarded. ALso the documentation is lean and it's output is somewhat inscruitable. Also its likely that it will not find hard negatives for some rows. Works OK.
 3. <mark><a href=”https://github.com/FlagOpen/FlagEmbedding/blob/master/FlagEmbedding/baai_general_embedding/README.md”>FLAG hard negative mining </a> from <a href=”https://github.com/FlagOpen/FlagEmbedding/”>FLAG Embeddings</a>.  Embeds the corpus into a vector database then takes the n closest points to a query.  Simple and effective.  Does not verify if any of these points are a true positive instead of a hard negative though.  Works very well. 
@@ -62,11 +62,10 @@ In any case this report has 3 methods togenerate hard negatives but prefer the 3
 <mark>Be aware that in large datasets, some hard negatives might correctly answer the question, effectively making them positives. These false negatives cause the model to try to push away correct answers which degrades performence. There is no easy way to distinguish this case.</mark> 
 
 ### Training Hints
-- Use SentenceTransformers for better performance over raw PyTorch.
-- Maximize batch size with MNRL for improved performance.
-- For evaluation, ensure there are no duplicate positives in the corpus (see ./code/utils.get_corpus_and_corpus_mapper and get_queries_and_relevant_docs functions for help with this)
-- Ensure training set is properly matched with the above deduplicated corpus.
-
+- <mark>Use SentenceTransformers for better performance over raw PyTorch.
+- <mark>Maximize batch size with MNRL for improved performance.
+- <mark>For evaluation, ensure there are no duplicate positives in the corpus (see ./code/utils.get_corpus_and_corpus_mapper and get_queries_and_relevant_docs functions for help with this).
+- <mark>Ensure training set is properly matched with the above deduplicated corpus(see ./code/utils.get_queries_and_relevant_docs functions for help with this).
 
 ## Conclusion
 Implementing these recommendations will significantly improve the performance of semantic search and retrieval systems. 
@@ -77,3 +76,4 @@ Implementing these recommendations will significantly improve the performance of
 - Train cross encoders, how to generate good training data? Maybe train using triplets and MNRL?
 - Evaluate big cross encoders (CoHere, Jinja 2).
 - Evaluate replacing cosign loss with CoSENTLoss and AnglELoss 
+
