@@ -16,18 +16,18 @@ import utils as ut
 # batch_size='8'
 # num_epochs='1'
 
-# modelname='sentence-transformers/multi-qa-mpnet-base-cos-v1' #max_seq_length': 512
-# num_epochs='2'
-# batch_size='32'
+modelname='sentence-transformers/multi-qa-mpnet-base-cos-v1' #max_seq_length': 512
+num_epochs='2'
+batch_size='32'
 
 # modelname = "dunzhang/stella_en_400M_v5"  #max_seq_length': 512
 # batch_size='128'
 # num_epochs='2'
 
-modelname='sentence-transformers/msmarco-distilbert-cos-v5'  #max_seq_length': 384
-num_epochs='2'
-# num_epochs='1'
-batch_size='256'  #can get away with 256 on MNRL but Triplet is 128 only
+# modelname='sentence-transformers/msmarco-distilbert-cos-v5'  #max_seq_length': 384
+# num_epochs='2'
+# # num_epochs='1'
+# batch_size='128'  #can get away with 256 on MNRL but Triplet is 128 only
  
 #rank is on https://huggingface.co/spaces/mteb/leaderboard, select the ReRanking Tab
 # crossencoder='cross-encoder/ms-marco-MiniLM-L-12-v2'  #(BERT) finetuned does not improve performance 
@@ -57,16 +57,19 @@ def run_script(script_name, script_args):
 def main():
     scripts_with_args = [
         
-        #multiple negatives ranking loss
-        # ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','Y']),
-        # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
+        #multiple negatives ranking loss with anchor positives only
+        ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','N']),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
+
+        #Mine hard negatives(use BAII HNM, see FLAG repo, see README.md Hard Negative Mining)
+
+        #multiple negatives ranking loss with triplets
+        ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','Y']),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
 
         #CachedMultipleNegativesRankingLoss- increase batch size but slower than MultipleNegativesRankingLoss
         # ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','CachedMultipleNegativesRankingLoss']),
         # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','CachedMultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
-
-        # # #get some hard negatives to use (use BAII HNM instead)
-        ('mine_hard_negatives.py', []),
 
         #triplet losses (train first with all hard negatives, then semi hard negatives, then hard negatives)
         # ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','n','--modelname', modelname,'--batch_size', batch_size, '--loss','TripletLoss']),
@@ -80,7 +83,6 @@ def main():
         # # ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','y','--modelname', modelname,'--batch_size', batch_size, '--loss','CircleLoss']),
         # # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','CircleLoss','--modelname', modelname,'--crossencoder',crossencoder]),
 
- 
         # ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','n','--modelname', modelname,'--batch_size', batch_size, '--loss','TripletLossOnlineSemiHNMining','--save_location','TripletLoss']),
         # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','TripletLossOnlineSemiHNMining','--modelname', modelname,'--crossencoder',crossencoder,'--save_location','TripletLoss']),
  

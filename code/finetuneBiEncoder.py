@@ -22,11 +22,14 @@ def getDatasets(use_HN_dataset:str):
     Raises:
     None
     """
+    global LOGGER
     if use_HN_dataset=='N':
+        LOGGER.info("Using anchor, positive dataset")
         train_dataset = load_dataset("json", data_files="../data/trn.json", split="train")
         eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
     else:
+        LOGGER.info("Using anchor, positive, negative dataset")
     #     # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
     #     # eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
         train_dataset = load_dataset("json", data_files="../data/trn_FLAG_HN.json", split="train")
@@ -113,7 +116,7 @@ def main():
         # model = SentenceTransformer(f"models/{modelname}_posanchor_legal/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
 
     # 3. Load a dataset to finetune on
-    train_dataset, eval_dataset, test_dataset = getDatasets(argsp.loss)
+    train_dataset, eval_dataset, test_dataset = getDatasets(argsp.use_HN_dataset)
  
     # generate data for informationretreival evaluator
     corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
