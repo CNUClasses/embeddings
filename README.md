@@ -1,4 +1,4 @@
-# Recommendations for fine tuning RAG systems on Hugging Face biencoders and crossencoders.
+# Recommendations for fine tuning RAG systems on Hugging Face bi encoders and crossencoders.
 
 ## Summary
 This report outlines key strategies and recommendations for improving the performance of semantic search and retrieval systems, particularly focusing on data preparation, model selection and training procedures for bi and cross encoders on the Hugging Face platform.
@@ -42,7 +42,7 @@ see requirements.txt<br>
 <mark> 1. Train model A (biencoder) on anchor-positive pairs with MNRL.<br>
 2. Offline mine hard negatives (HN) using model A.<br>
 3.  Retrain model A with expanded dataset including HNs with MNRL.<br>
-<mark> Loop on steps 2 and 3 to get better hard negatives.</mark><br>
+<mark> Loop on steps 2 and 3 to get better hard negatives and a better model.</mark><br>
 
 ## Training Cross Encoder (reranker)
 Cross-encoders serve as a second stage in RAG pipelines for reranking results. They provide higher accuracy than bi-encoders.  They must be fine tuned if they are going to be used with a fine tuned biencoder as part of a 2 stage RAG system.<br>
