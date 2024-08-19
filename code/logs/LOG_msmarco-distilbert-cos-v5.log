@@ -1,3 +1,34 @@
+Using anchor, positive dataset
+--FINETUNING -- finetunebiencoder.py; model:msmarco-distilbert-cos-v5, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:128
+TEST SET, NOT finetuned
+cosine_ndcg@10    : 0.45
+cosine_mrr@10     : 0.40
+cosine_map@100    : 0.41
+cosine_accuracy@1 : 0.32
+cosine_accuracy@5 : 0.51
+cosine_accuracy@10: 0.59
+
+TEST SET, after finetuned
+cosine_ndcg@10    : 0.62
+cosine_mrr@10     : 0.57
+cosine_map@100    : 0.58
+cosine_accuracy@1 : 0.47
+cosine_accuracy@5 : 0.70
+cosine_accuracy@10: 0.78
+
+Script execution time: 2 minutes and 54.93 seconds
+
+--RERANKING--- rerank_with_chromadb.py; model:msmarco-distilbert-cos-v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
+Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1250 out of 2641 for accuracy of 47.33 %
+self.stats['correct@5'] 1869 out of 2641 for accuracy of 70.77 %
+self.stats['correct@10'] 2071 out of 2641 for accuracy of 78.42 %
+Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1831 out of 2641 for accuracy of 69.33 %
+self.stats['correct@5'] 2278 out of 2641 for accuracy of 86.26 %
+self.stats['correct@10'] 2352 out of 2641 for accuracy of 89.06 %
+Script execution time: 6 minutes and 52.12 seconds
+
 Using anchor, positive, negative dataset
 --FINETUNING -- finetunebiencoder.py; model:msmarco-distilbert-cos-v5, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:128
 TEST SET, NOT finetuned
@@ -16,7 +47,7 @@ cosine_accuracy@1 : 0.79
 cosine_accuracy@5 : 0.95
 cosine_accuracy@10: 0.97
 
-Script execution time: 118 minutes and 5.79 seconds
+Script execution time: 75 minutes and 7.14 seconds
 
 --RERANKING--- rerank_with_chromadb.py; model:msmarco-distilbert-cos-v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
 Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
@@ -25,7 +56,7 @@ self.stats['correct@5'] 2519 out of 2641 for accuracy of 95.38 %
 self.stats['correct@10'] 2575 out of 2641 for accuracy of 97.50 %
 Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
 self.stats['correct@1'] 1889 out of 2641 for accuracy of 71.53 %
-self.stats['correct@5'] 2384 out of 2641 for accuracy of 90.27 %
-self.stats['correct@10'] 2483 out of 2641 for accuracy of 94.02 %
-Script execution time: 6 minutes and 52.88 seconds
+self.stats['correct@5'] 2386 out of 2641 for accuracy of 90.34 %
+self.stats['correct@10'] 2482 out of 2641 for accuracy of 93.98 %
+Script execution time: 6 minutes and 46.47 seconds
 

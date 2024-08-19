@@ -27,7 +27,7 @@ see requirements.txt<br>
 - Larger models generally perform better.<br>
 -Mind the default params, some use cosine similarity some use dot product.<br>
 -For RAG (Retrieval-Augmented Generation), prioritize models that excel at 'semantic similarity'.<br>
--Smaller finetuned models are both cost effective and beat bigger general purpose LLMs (except for GPT-4), see ‘A Thorough Comparison of Cross-Encoders and LLMs for Reranking SPLADE’<br>
+-Smaller finetuned models are both cost effective and beat bigger general purpose LLMs (except for GPT-4), see <a href="https://arxiv.org/html/2403.10407v1">A Thorough Comparison of Cross-Encoders and LLMs for Reranking SPLADE</a><br>
 
 ## Loss Function
 - see ./code/runall.py - for loss functions tested (including 3 custom losses).<br>
@@ -71,9 +71,10 @@ This repo has 3 methods to generate hard negatives but prefer the FLAG method (#
 Implementing these recommendations will significantly improve the performance of semantic search and retrieval systems. 
 
 ## Future work:
-- Effective document chunking strategies
+- Effective document chunking strategies (maximum chunk size, what doc metadata to track, chunk overlap...)
 - Mine Hard Negatives- how to ensure HNs are not actually positives.
 - Train cross encoders, how to generate good training data? Maybe train using triplets and MNRL?
-- Evaluate big cross encoders (CoHere, Jinja 2).
+- Evaluate larger cross encoders (CoHere, Jinja 2).
 - Evaluate replacing cosign loss with CoSENTLoss and AnglELoss 
+- Full LangChain pipeline using fine tuned models
 
