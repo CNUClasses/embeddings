@@ -72,9 +72,9 @@ Implementing these recommendations will significantly improve the performance of
 
 ## Future work:
 - Effective document chunking strategies (maximum chunk size, what doc metadata to track, chunk overlap...)
-- Mine Hard Negatives- how to ensure HNs are not actually positives.
-- Train cross encoders, how to generate good training data? Maybe train using triplets and MNRL?
+- <mark>Mine Hard Negatives- how to ensure HNs are not actually positives (GPT-4o mini?)
+- <mark>Train cross encoders, how to generate good training data? Maybe train using triplets and MNRL?
 - Evaluate larger cross encoders (CoHere, Jinja 2).
 - Evaluate replacing cosign loss with CoSENTLoss and AnglELoss 
-- Full LangChain pipeline using fine tuned models
-
+- Full LangChain pipeline using fine tuned models for inference
+- <mark>Port HN mining code 
