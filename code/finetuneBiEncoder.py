@@ -2,6 +2,10 @@
 
 #this is to be run on the triplet dataset created by create_triplet_dataset_using_finetuned_model.py
 
+#run this BEFORE you import torch to select a particular device
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
+
 from myimports import *
 from CircleLoss import CircleLoss
 import utils as ut
@@ -30,10 +34,13 @@ def getDatasets(use_HN_dataset:str):
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
     else:
         LOGGER.info("Using anchor, positive, negative dataset")
-    #     # train_dataset = load_dataset("json", data_files="../data/trn_with_hard_negatives.json", split="train")
-    #     # eval_dataset = load_dataset("json", data_files="../data/eval_with_hard_negatives.json", split="train")
         train_dataset = load_dataset("json", data_files="../data/trn_FLAG_HN.json", split="train")
         eval_dataset = load_dataset("json", data_files="../data/eval_FLAG_HN.json", split="train")
+
+        #not as performant as the above
+        # train_dataset = load_dataset("json", data_files="../data/trn_HN_KP.json", split="train")
+        # eval_dataset = load_dataset("json", data_files="../data/eval_HN_KP.json", split="train")
+
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
     return train_dataset, eval_dataset, test_dataset
@@ -98,22 +105,24 @@ def main():
     LOGGER = ut.setup_logger(modelname, argsp.mode)
     startTime = time.time()
 
+    #set cuda device
+    # torch.cuda.set_device(2)
+
     # 1. Load a model to finetune with 2. (Optional) model card data
     if(argsp.resume=='n'):
         #original
         ut.login_hf()   #need this because GPU server keeps going down and scripts fail
         print(f"Loading original model {argsp.modelname}")
-        # model = SentenceTransformer(argsp.modelname,device="cuda:0" if torch.cuda.is_available() else "cpu",)
-        model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(argsp.modelname)
+        # model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:2" if torch.cuda.is_available() else "cpu",)
+        # model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f"models/{modelname}/{save_location}/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
-        # model = SentenceTransformer(f"models/{modelname}/pos_anchor/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
-        
-        #experiment, try hard negatives after training on MRRL loss
-        # LOGGER.info(f"EXPERIMENT--Loading finetuned model {modelname}_posanchor_legal and then training it using triplet loss for {argsp.num_epochs}")
-        # model = SentenceTransformer(f"models/{modelname}_posanchor_legal/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        model = SentenceTransformer(f"models/{modelname}/{save_location}/final")
+
+        # model = SentenceTransformer(f"models/{modelname}/{save_location}/final",device=f"cuda:2" if torch.cuda.is_available() else "cpu",)
+        # model = SentenceTransformer(f"models/{modelname}/{save_location}/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
 
     # 3. Load a dataset to finetune on
     train_dataset, eval_dataset, test_dataset = getDatasets(argsp.use_HN_dataset)

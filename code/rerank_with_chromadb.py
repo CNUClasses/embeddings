@@ -119,7 +119,7 @@ def main():
         st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
     
     # Create a new chroma collection
-    st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
+    st_collection = client.get_or_create_collection(name="st_embeddings",metadata={"hnsw:space": "cosine"}, embedding_function=st_ef)
 
     #add all corpus values to collection
     st_collection.add(

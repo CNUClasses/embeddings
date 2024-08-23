@@ -57,13 +57,16 @@ def main():
     scripts_with_args = [
         
         #multiple negatives ranking loss with anchor positives only
-        ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','N']),
+        # ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','N']),
 
         # You need to finetune reranker otherwise it will make things worse
         
-        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
+        # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
 
         #Mine hard negatives(use BAII HNM, see FLAG repo, see README.md Hard Negative Mining)
+        #used finetuned on (A,P,N) multi-qa-mpnet-base-cos-v1 as the embedding model below
+        # ('HN_mining.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,"--use_random_sample",'y']),
+        ('HN_mining.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', 'sentence-transformers/multi-qa-mpnet-base-cos-v1','--numb_HN_per_line','15','--fraction_HN_to_semiHN','0.2']),
 
         #multiple negatives ranking loss with triplets
         ('finetuneBiEncoder.py', ['--mode', 'a', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','Y']),

@@ -3,6 +3,7 @@ import utils as ut
 import chromadb
 client = chromadb.Client()
 from chromadb.utils import embedding_functions
+import math
 LOGGER=None
 
 #Lets see how it performs on multiple queries
@@ -18,10 +19,12 @@ def main():
     # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
     parser.add_argument('--localmodel', type=str, choices=['y', 'n'], default='y', help='get model locally or from hugging face: "y" local, "n" hugging face (default: "y")')  
-    parser.add_argument('--modelname', type=str, default='sentence-transformers/msmarco-distilbert-base-v2', help='which model to use(default: "sentence-transformers/msmarco-distilbert-base-v2")')  
-    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining','GISTEmbedLoss' ,'CachedMultipleNegativesRankingLoss'],default='TripletLossOnlineSemiHNMining', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
+    parser.add_argument('--modelname', type=str, default='sentence-transformers/multi-qa-mpnet-base-cos-v1', help='which model to use(default: "sentence-transformers/multi-qa-mpnet-base-cos-v1")')  
+    parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining','GISTEmbedLoss' ,'CachedMultipleNegativesRankingLoss'],default='MultipleNegativesRankingLoss', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
     parser.add_argument('--numb_HN_per_line', type=str, default='15', help='number of hard negatives to extract per line. (default:15)')  
-    parser.add_argument('--use_random_sample', type=str, choices=['y', 'n'], default='y', help='randomly sample from closest hard negatives. (default:y)')  
+    # parser.add_argument('--use_random_sample', type=str, choices=['y', 'n'], default='y', help='randomly sample from closest hard negatives. (default:y)')  
+    parser.add_argument('--fraction_HN_to_semiHN', type=str, default='0.2', help='ratio of the number of hard negatives to semi hard negatives, .1 means 1 HN to 10 semiHN. (default:.1)')  
+ 
     parser.add_argument('--save_location', type=str, default=None, help='subdirectory where the final model is serialized. If none defaults to the name of the loss function. (default: None )')  
 
     argsp = parser.parse_args()
@@ -49,7 +52,7 @@ def main():
     LOGGER = ut.setup_logger(modelname, argsp.mode)
     startTime = time.time()
  
-    LOGGER.info(f"--Embedding Corpus using chromadb; model:{modelname}, localmodel:{argsp.localmodel}, loss function:{argsp.loss}--")  
+    LOGGER.info(f"--Mining Hard Negatives Corpus using chromadb; model:{modelname}, localmodel:{argsp.localmodel}, loss function:{argsp.loss}--")  
 
     if(argsp.localmodel=='n'):
         #get uploaded fine tuned embedder
@@ -59,9 +62,13 @@ def main():
         #or from a local model
         print("model from local disk")
         st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
-    
+        
+        #see if model makes better HNs (performs same as msmarco-distilbert-cos-v5)
+        # st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"BAAI/bge-base-en-v1.5",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+ 
+        
     # Create a new chroma collection
-    st_collection = client.get_or_create_collection(name="st_embeddings", embedding_function=st_ef)
+    st_collection = client.get_or_create_collection(name="st_embeddings",metadata={"hnsw:space": "cosine"}, embedding_function=st_ef)
 
     #add all corpus values to collection to embed
     st_collection.add(
@@ -69,31 +76,73 @@ def main():
         ids=[str(id) for id in list(corpus.keys())])
  
     #get matches for each dataset of interest
-    def get_HNs(st_collection,ds,numb_HN_per_line, use_random_sample=False):
-        res= st_collection.query(
-        query_texts=ds['anchor'],  # Query all texts
-        n_results=50 )  
-
+    # def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line, use_random_sample=False):
         
+    #     all=[]
+    #     for i in tqdm(range(len(ds))):
+    #         res= st_collection.query(query_texts=ds['anchor'][i],n_results=100 ) 
+    #         res=res['documents'][0] 
+
+    #         #remove the actual positive for each line
+    #         # print(res.documents[i])
+    #         try:
+    #             res.remove(ds['positive'][i]) #??
+    #         except:
+    #             pass
+
+    #         #first get the hardest negatives, then a random sample from the easier ones
+    #         res1=random.sample(res[:10], numb_hard_negatives_per_line)+random.sample(res[10:50], numb_hard_negatives_per_line) + random.sample(res[50:100], numb_easy_negatives_per_line)
+    #         all.append(res1)
+    #         # res['documents'][i]=res['documents'][i][:numb_hard_negatives_per_line] + random.sample(res['documents'][i][100:200], numb_easy_negatives_per_line)
+
+    #         #then randomly sample the rest from the 
+
+    #         # #return a subset of the data?
+    #         # if(use_random_sample=='y'):
+    #         #     res['documents'][i]=list(np.random.choice(res['documents'][i],numb_HN_per_line,replace=False))
+    #         # else:
+    #         #     # print(res[i].documents)
+    #         #     res['documents'][i]=res['documents'][i][:numb_HN_per_line]
+    #     return all
+    def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line, use_random_sample=False):
+            
+        res= st_collection.query(query_texts=ds['anchor'],n_results=100 ) 
+        res=res['documents']
+
         for i in tqdm(range(len(ds))):
+            # res= st_collection.query(query_texts=ds['anchor'],n_results=100 ) 
+            # res=res['documents'][0] 
+
             #remove the actual positive for each line
             # print(res.documents[i])
             try:
-                res['documents'][i].remove(ds['positive'][i])
+                res[i].remove(ds['positive'][i]) #??
             except:
                 pass
 
-            #return a subset of the data?
-            if(use_random_sample=='y'):
-                res['documents'][i]=list(np.random.choice(res['documents'][i],numb_HN_per_line,replace=False))
-            else:
-                # print(res[i].documents)
-                res['documents'][i]=res['documents'][i][:numb_HN_per_line]
+            #first get the hardest negatives, then a random sample from the easier ones
+            res[i]=random.sample(res[i][:10], numb_hard_negatives_per_line)+random.sample(res[i][10:50], numb_hard_negatives_per_line) + random.sample(res[i][50:100], numb_easy_negatives_per_line)
+            # res['documents'][i]=res['documents'][i][:numb_hard_negatives_per_line] + random.sample(res['documents'][i][100:200], numb_easy_negatives_per_line)
 
+            #then randomly sample the rest from the 
+
+            # #return a subset of the data?
+            # if(use_random_sample=='y'):
+            #     res['documents'][i]=list(np.random.choice(res['documents'][i],numb_HN_per_line,replace=False))
+            # else:
+            #     # print(res[i].documents)
+            #     res['documents'][i]=res['documents'][i][:numb_HN_per_line]
         return res
+    #get the number of hard and easy negatives to mine per line
+    total_negatives_per_line=int(argsp.numb_HN_per_line)   
+    numb_hard_negatives_per_line=math.ceil(total_negatives_per_line*float(argsp.fraction_HN_to_semiHN))
+    numb_easy_negatives_per_line=total_negatives_per_line-2*numb_hard_negatives_per_line
 
-    res_trn=get_HNs(st_collection,train_dataset,numb_HN_per_line=int(argsp.numb_HN_per_line), use_random_sample=argsp.use_random_sample)
-    res_eval=get_HNs(st_collection,eval_dataset,numb_HN_per_line=int(argsp.numb_HN_per_line), use_random_sample=argsp.use_random_sample)
+    # res_trn=get_HNs(st_collection,train_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line, use_random_sample=argsp.use_random_sample)
+    # res_eval=get_HNs(st_collection,eval_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line, use_random_sample=argsp.use_random_sample)
+
+    res_trn=get_HNs(st_collection,train_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
+    res_eval=get_HNs(st_collection,eval_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
 
     train_dataset=train_dataset.add_column('neg',res_trn['documents'])
     eval_dataset=eval_dataset.add_column('neg',res_eval['documents'])
