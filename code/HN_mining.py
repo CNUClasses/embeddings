@@ -1,3 +1,11 @@
+#easy way run this BEFORE you import torch to select a particular device
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"]="2"
+
+# or this way, get any free GPU
+from utils_gpu import get_free_gpu
+get_free_gpu()
+
 from myimports import *
 import utils as ut
 import chromadb
@@ -22,9 +30,7 @@ def main():
     parser.add_argument('--modelname', type=str, default='sentence-transformers/multi-qa-mpnet-base-cos-v1', help='which model to use(default: "sentence-transformers/multi-qa-mpnet-base-cos-v1")')  
     parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining','GISTEmbedLoss' ,'CachedMultipleNegativesRankingLoss'],default='MultipleNegativesRankingLoss', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
     parser.add_argument('--numb_HN_per_line', type=str, default='15', help='number of hard negatives to extract per line. (default:15)')  
-    # parser.add_argument('--use_random_sample', type=str, choices=['y', 'n'], default='y', help='randomly sample from closest hard negatives. (default:y)')  
     parser.add_argument('--fraction_HN_to_semiHN', type=str, default='0.2', help='ratio of the number of hard negatives to semi hard negatives, .1 means 1 HN to 10 semiHN. (default:.1)')  
- 
     parser.add_argument('--save_location', type=str, default=None, help='subdirectory where the final model is serialized. If none defaults to the name of the loss function. (default: None )')  
 
     argsp = parser.parse_args()
@@ -57,15 +63,12 @@ def main():
     if(argsp.localmodel=='n'):
         #get uploaded fine tuned embedder
         print("model from hugging face hub")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_{argsp.loss}_legal",device='cpu')
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_{argsp.loss}_legal",trust_remote_code=True, device='cuda')
     else:
         #or from a local model
         print("model from local disk")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
-        
-        #see if model makes better HNs (performs same as msmarco-distilbert-cos-v5)
-        # st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"BAAI/bge-base-en-v1.5",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
- 
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True, device='cuda')
+  
         
     # Create a new chroma collection
     st_collection = client.get_or_create_collection(name="st_embeddings",metadata={"hnsw:space": "cosine"}, embedding_function=st_ef)
@@ -76,93 +79,80 @@ def main():
         ids=[str(id) for id in list(corpus.keys())])
  
     #get matches for each dataset of interest
-    # def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line, use_random_sample=False):
-        
-    #     all=[]
-    #     for i in tqdm(range(len(ds))):
-    #         res= st_collection.query(query_texts=ds['anchor'][i],n_results=100 ) 
-    #         res=res['documents'][0] 
+    def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line):
+        """
+        Retrieves a list of hard negatives (HNs) for each line in the dataset.
+        Args:
+            st_collection (object): The collection of embeddings to search.
+            ds (dict): The dataset containing the anchor and positive texts.
+            numb_easy_negatives_per_line (int): The number of easy negatives to include per line.
+            numb_hard_negatives_per_line (int): The number of hard negatives to include per line.
+        Returns:
+            list: A list of hard negatives for each line in the dataset.
+        """
 
-    #         #remove the actual positive for each line
-    #         # print(res.documents[i])
-    #         try:
-    #             res.remove(ds['positive'][i]) #??
-    #         except:
-    #             pass
-
-    #         #first get the hardest negatives, then a random sample from the easier ones
-    #         res1=random.sample(res[:10], numb_hard_negatives_per_line)+random.sample(res[10:50], numb_hard_negatives_per_line) + random.sample(res[50:100], numb_easy_negatives_per_line)
-    #         all.append(res1)
-    #         # res['documents'][i]=res['documents'][i][:numb_hard_negatives_per_line] + random.sample(res['documents'][i][100:200], numb_easy_negatives_per_line)
-
-    #         #then randomly sample the rest from the 
-
-    #         # #return a subset of the data?
-    #         # if(use_random_sample=='y'):
-    #         #     res['documents'][i]=list(np.random.choice(res['documents'][i],numb_HN_per_line,replace=False))
-    #         # else:
-    #         #     # print(res[i].documents)
-    #         #     res['documents'][i]=res['documents'][i][:numb_HN_per_line]
-    #     return all
-    def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line, use_random_sample=False):
-            
-        res= st_collection.query(query_texts=ds['anchor'],n_results=100 ) 
+        # find the closest documents to each anchor in ds
+        total_to_retreive=100
+        t5=int(total_to_retreive/20)   # 5%  
+        t25=int(total_to_retreive/4)   # 25% 
+        res= st_collection.query(query_texts=ds['anchor'],n_results=total_to_retreive) 
         res=res['documents']
 
         for i in tqdm(range(len(ds))):
-            # res= st_collection.query(query_texts=ds['anchor'],n_results=100 ) 
-            # res=res['documents'][0] 
-
-            #remove the actual positive for each line
-            # print(res.documents[i])
+            #remove the correct positive for each line
             try:
                 res[i].remove(ds['positive'][i]) #??
             except:
                 pass
 
-            #first get the hardest negatives, then a random sample from the easier ones
-            res[i]=random.sample(res[i][:10], numb_hard_negatives_per_line)+random.sample(res[i][10:50], numb_hard_negatives_per_line) + random.sample(res[i][50:100], numb_easy_negatives_per_line)
-            # res['documents'][i]=res['documents'][i][:numb_hard_negatives_per_line] + random.sample(res['documents'][i][100:200], numb_easy_negatives_per_line)
+            #Sample hard negatives
+            #numb_hard_negatives_per_line from first from top 5% (Hardest negatives)
+            #numb_hard_negatives_per_line from 5%-25% (easier negatives)
+            #numb_easy_negatives_per_line from 25%-100% (easiest negatives)
+            res[i]=random.sample(res[i][:t5], numb_hard_negatives_per_line)+random.sample(res[i][t5:t25], numb_hard_negatives_per_line) + random.sample(res[i][t25:total_to_retreive], numb_easy_negatives_per_line)
 
-            #then randomly sample the rest from the 
-
-            # #return a subset of the data?
-            # if(use_random_sample=='y'):
-            #     res['documents'][i]=list(np.random.choice(res['documents'][i],numb_HN_per_line,replace=False))
-            # else:
-            #     # print(res[i].documents)
-            #     res['documents'][i]=res['documents'][i][:numb_HN_per_line]
         return res
+    
     #get the number of hard and easy negatives to mine per line
     total_negatives_per_line=int(argsp.numb_HN_per_line)   
     numb_hard_negatives_per_line=math.ceil(total_negatives_per_line*float(argsp.fraction_HN_to_semiHN))
     numb_easy_negatives_per_line=total_negatives_per_line-2*numb_hard_negatives_per_line
 
-    # res_trn=get_HNs(st_collection,train_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line, use_random_sample=argsp.use_random_sample)
-    # res_eval=get_HNs(st_collection,eval_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line, use_random_sample=argsp.use_random_sample)
-
+    #get the hard negatives
     res_trn=get_HNs(st_collection,train_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
     res_eval=get_HNs(st_collection,eval_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
 
-    train_dataset=train_dataset.add_column('neg',res_trn['documents'])
-    eval_dataset=eval_dataset.add_column('neg',res_eval['documents'])
+    #add the hard negatives to the dataset
+    train_dataset=train_dataset.add_column('neg',res_trn)
+    eval_dataset=eval_dataset.add_column('neg',res_eval)
  
     #save the dataset with hard negatives
     #TODO this is very ineffecient, should have a lookup table and numbers for each positive and negative
     train_dataset.to_json(f"../data/trn_HN_KP.json",orient='records',lines=True)
     eval_dataset.to_json(f"../data/eval_HN_KP.json",orient='records',lines=True)
 
-    #Lets explode the negative column
-    trn=pd.read_json("../data/trn_HN_KP.json", orient="records",lines=True)
-    eval=pd.read_json("../data/eval_HN_KP.json", orient="records",lines=True)
 
     def fixup(df):
+        """
+        Explodes the 'neg' column in the given DataFrame and renames the columns.
+        
+        Args:
+            df (pandas.DataFrame): The input DataFrame.
+            
+        Returns:
+            pandas.DataFrame: The modified DataFrame with exploded 'neg' column and renamed columns.
+        """
         df=df.explode('neg')
         df.rename(columns={'query':'anchor','pos':'positive','neg':'negative'}, inplace=True)
         id=range(len(df))
         df['id']=id
         return df
+    
 
+   #Load the dataset, then fixup, then save
+    trn=pd.read_json("../data/trn_HN_KP.json", orient="records",lines=True)
+    eval=pd.read_json("../data/eval_HN_KP.json", orient="records",lines=True)
+ 
     trn=fixup(trn)
     eval=fixup(eval)
 

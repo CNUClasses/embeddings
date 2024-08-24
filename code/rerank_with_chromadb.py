@@ -1,3 +1,11 @@
+#easy way run this BEFORE you import torch to select a particular device
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"]="2"
+
+#or this way, get any free GPU
+from utils_gpu import get_free_gpu
+get_free_gpu()
+
 from myimports import *
 import utils as ut
 import chromadb

@@ -1,10 +1,10 @@
-#see https://www.pinecone.io/learn/series/nlp/fine-tune-sentence-transformers-mnr/
+#easy way run this BEFORE you import torch to select a particular device
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
-#this is to be run on the triplet dataset created by create_triplet_dataset_using_finetuned_model.py
-
-#run this BEFORE you import torch to select a particular device
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+#or this way, get any free GPU
+from utils_gpu import get_free_gpu
+get_free_gpu()
 
 from myimports import *
 from CircleLoss import CircleLoss
@@ -33,14 +33,13 @@ def getDatasets(use_HN_dataset:str):
         eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
     else:
-        LOGGER.info("Using anchor, positive, negative dataset")
-        train_dataset = load_dataset("json", data_files="../data/trn_FLAG_HN.json", split="train")
-        eval_dataset = load_dataset("json", data_files="../data/eval_FLAG_HN.json", split="train")
+        # LOGGER.info("Using anchor, positive, negative dataset")
+        # train_dataset = load_dataset("json", data_files="../data/trn_FLAG_HN.json", split="train")
+        # eval_dataset = load_dataset("json", data_files="../data/eval_FLAG_HN.json", split="train")
 
         #not as performant as the above
-        # train_dataset = load_dataset("json", data_files="../data/trn_HN_KP.json", split="train")
-        # eval_dataset = load_dataset("json", data_files="../data/eval_HN_KP.json", split="train")
-
+        train_dataset = load_dataset("json", data_files="../data/trn_HN_KP.json", split="train")
+        eval_dataset = load_dataset("json", data_files="../data/eval_HN_KP.json", split="train")
         test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
     return train_dataset, eval_dataset, test_dataset
