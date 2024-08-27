@@ -56,8 +56,8 @@ Cross-encoders serve as a second stage in RAG pipelines for reranking results. T
 <mark> The mining algorithm should search for more than 1 hard negative per dataset line.  For this project 15 hard negatives were generated per line which expanded the dataset by a factor of 15. Hard negatives can be found by training a model using MNRL loss using anchor, positive pairs.  Then use this model to embed the dataset corpus, then add the embeddings to a vector database. Finally, use the vector database to find the n closest matches to a query. </mark><br>
 <mark>Be aware that in large datasets, some hard negatives might correctly answer the question, effectively making them positives. These false negatives cause the model to try to push away correct answers which degrades performence. There is no easy way to distinguish this case. The following miners suffer from this problem.</mark> 
 
--see ./code/HN_mining_FAISS.py and ./code/HN_mining_ChromaDB.py<br>
-One uses FAISS one uses ChromaDB. See code for changing the mix of hard negatives, semi hard negatives and easy negatives. <br>
+-see ./code/HN_mining_FAISS.py<br>
+See code for changing the mix of hard negatives, semi hard negatives and easy negatives. <br>
 
 ### Training Hints
 - <mark>Use SentenceTransformers for better performance over raw PyTorch.
