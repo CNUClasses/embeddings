@@ -75,4 +75,3 @@ Implementing these recommendations will significantly improve the performance of
 - Evaluate larger cross encoders (CoHere, Jinja 2).
 - Evaluate replacing cosign loss with CoSENTLoss and AnglELoss 
 - Full LangChain pipeline using fine tuned models for inference
-- <mark>Port HN mining code 
