@@ -120,11 +120,11 @@ def main():
     if(argsp.localmodel=='n'):
         #get uploaded fine tuned embedder
         print("model from hugging face hub")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_{argsp.loss}_legal",device='cpu')
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_{argsp.loss}_legal")
     else:
         #or from a local model
         print("model from local disk")
-        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True)
     
     # Create a new chroma collection
     st_collection = client.get_or_create_collection(name="st_embeddings",metadata={"hnsw:space": "cosine"}, embedding_function=st_ef)

@@ -17,30 +17,6 @@ LOGGER=None
 #Lets see how it performs on multiple queries
 from tqdm import tqdm
 import numpy as np
-import faiss
-
-def create_index(embeddings, use_gpu):
-    index = faiss.IndexFlatIP(len(embeddings[0]))
-    embeddings = np.asarray(embeddings, dtype=np.float32)
-    if use_gpu:
-        co = faiss.GpuMultipleClonerOptions()
-        co.shard = True
-        co.useFloat16 = True
-        index = faiss.index_cpu_to_all_gpus(index, co=co)
-    index.add(embeddings)
-    return index
-
-def batch_search(index,
-                 query,
-                 topk: int = 200,
-                 batch_size: int = 64):
-    all_scores, all_inxs = [], []
-    for start_index in tqdm(range(0, len(query), batch_size), desc="Batches", disable=len(query) < 256):
-        batch_query = query[start_index:start_index + batch_size]
-        batch_scores, batch_inxs = index.search(np.asarray(batch_query, dtype=np.float32), k=topk)
-        all_scores.extend(batch_scores.tolist())
-        all_inxs.extend(batch_inxs.tolist())
-    return all_scores, all_inxs
 
 def main():
     '''to call this script
@@ -70,30 +46,13 @@ def main():
     eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
     test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
-    # #I dont think this is necessary but...
-    # def cleanup(ds):
-    #     ds['positive']=ds['positive'].apply(lambda x: x.strip())
-    #     ds['anchor']=ds['anchor'].apply(lambda x: x.strip())
-    #     return ds
-    # train_dataset=cleanup(train_dataset)
-    # eval_dataset=cleanup(eval_dataset)
-    # test_dataset=cleanup(test_dataset)
-
-    # train_dataset=train_dataset.select(range(100))
-    # eval_dataset=eval_dataset.select(range(100))
-    # test_dataset=test_dataset.select(range(100))
-
-
     # generate data for informationretreival evaluator
     corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
 
     #collect all positives from train,eval,test
-    # corpus = dict(
-    #     zip(corpus_dataset["id"], corpus_dataset["positive"])
-    # )  # Our corpus (cid => document)
     corpus = dict(
-        zip(list(range(len(corpus_dataset))), corpus_dataset["positive"])
-    )  #
+        zip(corpus_dataset["id"], corpus_dataset["positive"])
+    )  # Our corpus (cid => document)
 
      # Set up the LOGGER
     LOGGER = ut.setup_logger(modelname, argsp.mode)
@@ -101,82 +60,58 @@ def main():
  
     LOGGER.info(f"--Mining Hard Negatives Corpus using chromadb; model:{modelname}, localmodel:{argsp.localmodel}, loss function:{argsp.loss}--")  
 
-
-    #Load a model to finetune with 2. (Optional) model card data
     if(argsp.localmodel=='n'):
-        print(f"Loading original model {argsp.modelname}")
-        model = SentenceTransformer(argsp.modelname,trust_remote_code=True,)
-        # model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:2" if torch.cuda.is_available() else "cpu",)
-        # model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
+        #get uploaded fine tuned embedder
+        print("model from hugging face hub")
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"kperkins411/{modelname}_{argsp.loss}_legal",trust_remote_code=True, device='cuda')
     else:
-        #finetuned
-        print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f"models/{modelname}/{save_location}/final",trust_remote_code=True,)
-
-    # 4. Create a new FAISS index    
-    print(f'inferencing embedding for corpus (number={len(corpus)})--------------')
-    c_vecs = model.encode(list(corpus.values()))
-
-    print('create index and search------------------')
-    index = create_index(c_vecs, use_gpu=False)
-       
+        #or from a local model
+        print("model from local disk")
+        st_ef=embedding_functions.SentenceTransformerEmbeddingFunction(f"./models/{modelname}/{save_location}/final",trust_remote_code=True, device='cuda')
+  
+        
     # Create a new chroma collection
-    # st_collection = client.get_or_create_collection(name="st_embeddings",metadata={"hnsw:space": "cosine"}, embedding_function=st_ef)
+    st_collection = client.get_or_create_collection(name="st_embeddings",metadata={"hnsw:space": "cosine"}, embedding_function=st_ef)
 
-    # #add all corpus values to collection to embed
-    # st_collection.add(
-    #     documents=list(corpus.values()),
-    #     ids=[str(id) for id in list(corpus.keys())])
+    #add all corpus values to collection to embed
+    st_collection.add(
+        documents=list(corpus.values()),
+        ids=[str(id) for id in list(corpus.keys())])
  
     #get matches for each dataset of interest
-    def get_HNs(index,model, ds,numb_hard_negatives_per_line):
+    def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line):
         """
         Retrieves a list of hard negatives (HNs) for each line in the dataset.
         Args:
             st_collection (object): The collection of embeddings to search.
             ds (dict): The dataset containing the anchor and positive texts.
+            numb_easy_negatives_per_line (int): The number of easy negatives to include per line.
             numb_hard_negatives_per_line (int): The number of hard negatives to include per line.
         Returns:
             list: A list of hard negatives for each line in the dataset.
         """
 
         # find the closest documents to each anchor in ds
-        total_to_retreive=200
-        t5=int(total_to_retreive/20)   # top 5%  
-        t25=int(total_to_retreive/4)   # top 25% 
+        total_to_retreive=100
+        t5=int(total_to_retreive/20)   # 5%  
+        t25=int(total_to_retreive/4)   # 25% 
+        res= st_collection.query(query_texts=ds['anchor'],n_results=total_to_retreive) 
+        res=res['documents']
 
-        #get 1/5 hard negatives from top 5% and 1/5 from 5%-25% and 3/5 from 25%-100%
-        numb_HN=int(numb_hard_negatives_per_line/5)
+        for i in tqdm(range(len(ds))):
+            #remove the correct positive for each line
+            try:
+                res[i].remove(ds['positive'][i]) #??
+            except:
+                pass
 
-        print(f'inferencing embedding for queries (number={len(ds)})--------------')
-        q_vecs = model.encode(list(ds['anchor']))
-        print(f'Length q_vecs={len(q_vecs)}')
-        print(f'numb_hard_negatives_per_line={numb_hard_negatives_per_line}')
+            #Sample hard negatives
+            #numb_hard_negatives_per_line from first from top 5% (Hardest negatives)
+            #numb_hard_negatives_per_line from 5%-25% (easier negatives)
+            #numb_easy_negatives_per_line from 25%-100% (easiest negatives)
+            res[i]=random.sample(res[i][:t5], numb_hard_negatives_per_line)+random.sample(res[i][t5:t25], numb_hard_negatives_per_line) + random.sample(res[i][t25:total_to_retreive], numb_easy_negatives_per_line)
 
-        _, all_inxs = batch_search(index, q_vecs, topk=total_to_retreive)
-        assert len(all_inxs) == len(ds)
-
-        HNs=[]
-        for i, data in enumerate(ds):
-            query = data['anchor']
-            inxs = all_inxs[i][10:200]
-            filtered_inx = []
-            for inx in inxs:
-                if inx == -1: break
-                if corpus[inx] not in data['positive'] and corpus[inx] != query:
-                    filtered_inx.append(inx)
-
-            if len(filtered_inx) > numb_hard_negatives_per_line:
-                #Sample hard negatives
-                #numb_hard_negatives_per_line from first from top 5% (Hardest negatives)
-                #numb_hard_negatives_per_line from 5%-25% (easier negatives)
-                #numb_easy_negatives_per_line from 25%-100% (easiest negatives)
-                filtered_inx=random.sample(filtered_inx[:t5], numb_HN)+random.sample(filtered_inx[t5:t25], numb_HN) + random.sample(filtered_inx[t25:total_to_retreive], 3*numb_HN)
-            HNs.append([corpus[inx] for inx in filtered_inx])
-        
-        #add a negative column to ds
-        ds=ds.add_column('neg',HNs)
-        return ds
+        return res
     
     #get the number of hard and easy negatives to mine per line
     total_negatives_per_line=int(argsp.numb_HN_per_line)   
@@ -184,8 +119,12 @@ def main():
     numb_easy_negatives_per_line=total_negatives_per_line-2*numb_hard_negatives_per_line
 
     #get the hard negatives
-    train_dataset=get_HNs(index,model,train_dataset,numb_hard_negatives_per_line=total_negatives_per_line)
-    eval_dataset=get_HNs(index,model,eval_dataset,numb_hard_negatives_per_line=total_negatives_per_line)
+    res_trn=get_HNs(st_collection,train_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
+    res_eval=get_HNs(st_collection,eval_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
+
+    #add the hard negatives to the dataset
+    train_dataset=train_dataset.add_column('neg',res_trn)
+    eval_dataset=eval_dataset.add_column('neg',res_eval)
  
     #save the dataset with hard negatives
     #TODO this is very ineffecient, should have a lookup table and numbers for each positive and negative
