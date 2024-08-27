@@ -53,10 +53,11 @@ Cross-encoders serve as a second stage in RAG pipelines for reranking results. T
 
 
 ## Hard Negatives
-<mark> The mining algorithm should search for more than 1 hard negative per dataset line.  For this project 15 hard negatives were generated per line which expanded the dataset by a factor of 15. Hard negatives are easy to find, simply train a model using MNRL loss using anchor, positive pairs.  Embed the dataset corpus using this model and add to a vector database. Then use the database to find the closest n matches to a particular query. </mark><br>
-This repo has 2 custom miners (see HN_mining_FAISS.py and HN_mining_ChromaDB.py). One uses FAISS one uses ChromaDB. Simple and effective.  But does not verify if any of these points are a true positive instead of a hard negative. See code for changing the mix of hard negatives, semi hard negatives and easy negatives.<br>
+<mark> The mining algorithm should search for more than 1 hard negative per dataset line.  For this project 15 hard negatives were generated per line which expanded the dataset by a factor of 15. Hard negatives can be found by training a model using MNRL loss using anchor, positive pairs.  Then use this model to embed the dataset corpus, then add the embeddings to a vector database. Finally, use the vector database to find the n closest matches to a query. </mark><br>
+<mark>Be aware that in large datasets, some hard negatives might correctly answer the question, effectively making them positives. These false negatives cause the model to try to push away correct answers which degrades performence. There is no easy way to distinguish this case. The following miners suffer from this problem.</mark> 
 
-<mark>Be aware that in large datasets, some hard negatives might correctly answer the question, effectively making them positives. These false negatives cause the model to try to push away correct answers which degrades performence. There is no easy way to distinguish this case.</mark> 
+-see ./code/HN_mining_FAISS.py and ./code/HN_mining_ChromaDB.py<br>
+One uses FAISS one uses ChromaDB. See code for changing the mix of hard negatives, semi hard negatives and easy negatives. <br>
 
 ### Training Hints
 - <mark>Use SentenceTransformers for better performance over raw PyTorch.

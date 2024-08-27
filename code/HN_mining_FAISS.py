@@ -70,27 +70,10 @@ def main():
     eval_dataset = load_dataset("json", data_files="../data/eval.json", split="train")
     test_dataset = load_dataset("json", data_files="../data/tst.json", split="train")
 
-    # #I dont think this is necessary but...
-    # def cleanup(ds):
-    #     ds['positive']=ds['positive'].apply(lambda x: x.strip())
-    #     ds['anchor']=ds['anchor'].apply(lambda x: x.strip())
-    #     return ds
-    # train_dataset=cleanup(train_dataset)
-    # eval_dataset=cleanup(eval_dataset)
-    # test_dataset=cleanup(test_dataset)
-
-    # train_dataset=train_dataset.select(range(100))
-    # eval_dataset=eval_dataset.select(range(100))
-    # test_dataset=test_dataset.select(range(100))
-
-
     # generate data for informationretreival evaluator
     corpus_dataset,corpus_mapper=ut.get_corpus_and_corpus_mapper(train_dataset, eval_dataset, test_dataset, dup_col='positive')
 
     #collect all positives from train,eval,test
-    # corpus = dict(
-    #     zip(corpus_dataset["id"], corpus_dataset["positive"])
-    # )  # Our corpus (cid => document)
     corpus = dict(
         zip(list(range(len(corpus_dataset))), corpus_dataset["positive"])
     )  #
