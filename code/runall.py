@@ -56,23 +56,29 @@ def run_script(script_name, script_args):
 def main():
     scripts_with_args = [
         
-        #multiple negatives ranking loss with anchor positives only
-        # ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','N']),
+        #finetune from scratch, multiple negatives ranking loss with anchor positives only
+        ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','N']),
 
         # You need to finetune reranker otherwise it will make things worse
-        
-        # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
 
-        #Mine hard negatives(use BAII HNM, see FLAG repo, see README.md Hard Negative Mining)
-        #used finetuned on (A,P,N) multi-qa-mpnet-base-cos-v1 as the embedding model below
-        # ('HN_mining.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', 'sentence-transformers/multi-qa-mpnet-base-cos-v1','--numb_HN_per_line','15','--fraction_HN_to_semiHN','0.2']),
-        # ('HN_mining_FAISS.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', 'sentence-transformers/multi-qa-mpnet-base-cos-v1','--numb_HN_per_line','15','--fraction_HN_to_semiHN','0.2']),
-        # ('HN_mining_FAISS.py', ['--mode', 'a', '--localmodel', 'n','--loss','MultipleNegativesRankingLoss','--modelname', 'BAAI/bge-base-en','--numb_HN_per_line','15','--fraction_HN_to_semiHN','0.2']),
+        # mine hard negatives
+        # ('HN_mining_ChromaDB.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--numb_HN_per_line','15']),
+        ('HN_mining_FAISS.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--numb_HN_per_line','15','--fraction_HN_to_semiHN','0.2']),
 
-        #multiple negatives ranking loss with triplets
+        #finetune from scratch, multiple negatives ranking loss with anchor positives and negatives
         ('finetuneBiEncoder.py', ['--mode', 'a', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','Y']),
         ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
 
+        # mine hard negatives using the improved model to see if results are better
+        # ('HN_mining_ChromaDB.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--numb_HN_per_line','15']),
+        ('HN_mining_FAISS.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--numb_HN_per_line','15','--fraction_HN_to_semiHN','0.2']),
+
+        #finetune from scratch, multiple negatives ranking loss with anchor positives and negatives
+        ('finetuneBiEncoder.py', ['--mode', 'a', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','Y']),
+        ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
+
+    
         #CachedMultipleNegativesRankingLoss- increase batch size but slower than MultipleNegativesRankingLoss
         # ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','CachedMultipleNegativesRankingLoss']),
         # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','CachedMultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),

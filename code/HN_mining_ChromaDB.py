@@ -24,13 +24,11 @@ def main():
     '''
     global LOGGER
     parser = argparse.ArgumentParser(description="rerank model outputs")
-    # parser.add_argument('--log_fn', type=str, default='logfile.log', help='a log filename to record results (default: logfile.log)')
     parser.add_argument('--mode', type=str, choices=['a', 'w'], default='a', help='mode to open the log file: "a" for append, "w" for write/truncate (default: "a")')  
     parser.add_argument('--localmodel', type=str, choices=['y', 'n'], default='y', help='get model locally or from hugging face: "y" local, "n" hugging face (default: "y")')  
     parser.add_argument('--modelname', type=str, default='sentence-transformers/multi-qa-mpnet-base-cos-v1', help='which model to use(default: "sentence-transformers/multi-qa-mpnet-base-cos-v1")')  
     parser.add_argument('--loss', type=str, choices=['MultipleNegativesRankingLoss', 'TripletLoss', 'CircleLoss','TripletLossOnlineHNMining','TripletLossOnlineSemiHNMining','GISTEmbedLoss' ,'CachedMultipleNegativesRankingLoss'],default='MultipleNegativesRankingLoss', help='loss function, CircleLoss and TripletLossOnlineHNMining are custom (default: "TripletLossOnlineSemiHNMining")')  
     parser.add_argument('--numb_HN_per_line', type=str, default='15', help='number of hard negatives to extract per line. (default:15)')  
-    parser.add_argument('--fraction_HN_to_semiHN', type=str, default='0.2', help='ratio of the number of hard negatives to semi hard negatives, .1 means 1 HN to 10 semiHN. (default:.1)')  
     parser.add_argument('--save_location', type=str, default=None, help='subdirectory where the final model is serialized. If none defaults to the name of the loss function. (default: None )')  
 
     argsp = parser.parse_args()
@@ -79,22 +77,25 @@ def main():
         ids=[str(id) for id in list(corpus.keys())])
  
     #get matches for each dataset of interest
-    def get_HNs(st_collection,ds,numb_easy_negatives_per_line, numb_hard_negatives_per_line):
+    def get_HNs(st_collection,ds, numb_hard_negatives_per_line):
         """
         Retrieves a list of hard negatives (HNs) for each line in the dataset.
         Args:
             st_collection (object): The collection of embeddings to search.
             ds (dict): The dataset containing the anchor and positive texts.
-            numb_easy_negatives_per_line (int): The number of easy negatives to include per line.
             numb_hard_negatives_per_line (int): The number of hard negatives to include per line.
         Returns:
             list: A list of hard negatives for each line in the dataset.
         """
 
         # find the closest documents to each anchor in ds
-        total_to_retreive=100
-        t5=int(total_to_retreive/20)   # 5%  
-        t25=int(total_to_retreive/4)   # 25% 
+        total_to_retreive=200
+        t5=int(total_to_retreive/20)   # top 5%  
+        t25=int(total_to_retreive/4)   # top 25% 
+
+        #get 1/5 hard negatives from top 5% and 1/5 from 5%-25% and 3/5 from 25%-100%
+        numb_HN=int(numb_hard_negatives_per_line/5)
+
         res= st_collection.query(query_texts=ds['anchor'],n_results=total_to_retreive) 
         res=res['documents']
 
@@ -109,28 +110,23 @@ def main():
             #numb_hard_negatives_per_line from first from top 5% (Hardest negatives)
             #numb_hard_negatives_per_line from 5%-25% (easier negatives)
             #numb_easy_negatives_per_line from 25%-100% (easiest negatives)
-            res[i]=random.sample(res[i][:t5], numb_hard_negatives_per_line)+random.sample(res[i][t5:t25], numb_hard_negatives_per_line) + random.sample(res[i][t25:total_to_retreive], numb_easy_negatives_per_line)
+            res[i]=random.sample(res[i][:t5], numb_HN)+random.sample(res[i][t5:t25], numb_HN) + random.sample(res[i][t25:total_to_retreive], 3*numb_HN)
 
-        return res
+        #add a negative column to ds
+        ds=ds.add_column('neg',res)
+        return ds
     
     #get the number of hard and easy negatives to mine per line
     total_negatives_per_line=int(argsp.numb_HN_per_line)   
-    numb_hard_negatives_per_line=math.ceil(total_negatives_per_line*float(argsp.fraction_HN_to_semiHN))
-    numb_easy_negatives_per_line=total_negatives_per_line-2*numb_hard_negatives_per_line
-
+ 
     #get the hard negatives
-    res_trn=get_HNs(st_collection,train_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
-    res_eval=get_HNs(st_collection,eval_dataset,numb_easy_negatives_per_line=numb_easy_negatives_per_line,numb_hard_negatives_per_line=numb_hard_negatives_per_line)
-
-    #add the hard negatives to the dataset
-    train_dataset=train_dataset.add_column('neg',res_trn)
-    eval_dataset=eval_dataset.add_column('neg',res_eval)
+    train_dataset=get_HNs(st_collection,train_dataset,numb_hard_negatives_per_line=total_negatives_per_line)
+    eval_dataset=get_HNs(st_collection,eval_dataset,numb_hard_negatives_per_line=total_negatives_per_line)
  
     #save the dataset with hard negatives
     #TODO this is very ineffecient, should have a lookup table and numbers for each positive and negative
     train_dataset.to_json(f"../data/trn_HN_KP.json",orient='records',lines=True)
     eval_dataset.to_json(f"../data/eval_HN_KP.json",orient='records',lines=True)
-
 
     def fixup(df):
         """

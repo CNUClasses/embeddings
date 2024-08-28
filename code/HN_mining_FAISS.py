@@ -112,13 +112,13 @@ def main():
     #     ids=[str(id) for id in list(corpus.keys())])
  
     #get matches for each dataset of interest
-    def get_HNs(index,model, ds,numb_hard_negatives_per_line):
+    def get_HNs(index,model, ds,total_negatives_per_line):
         """
         Retrieves a list of hard negatives (HNs) for each line in the dataset.
         Args:
             st_collection (object): The collection of embeddings to search.
             ds (dict): The dataset containing the anchor and positive texts.
-            numb_hard_negatives_per_line (int): The number of hard negatives to include per line.
+            total_negatives_per_line (int): The number of hard negatives to include per line.
         Returns:
             list: A list of hard negatives for each line in the dataset.
         """
@@ -129,12 +129,12 @@ def main():
         t25=int(total_to_retreive/4)   # top 25% 
 
         #get 1/5 hard negatives from top 5% and 1/5 from 5%-25% and 3/5 from 25%-100%
-        numb_HN=int(numb_hard_negatives_per_line/5)
+        numb_HN=int(total_negatives_per_line/5)
 
         print(f'inferencing embedding for queries (number={len(ds)})--------------')
         q_vecs = model.encode(list(ds['anchor']))
         print(f'Length q_vecs={len(q_vecs)}')
-        print(f'numb_hard_negatives_per_line={numb_hard_negatives_per_line}')
+        print(f'total_negatives_per_line={total_negatives_per_line}')
 
         _, all_inxs = batch_search(index, q_vecs, topk=total_to_retreive)
         assert len(all_inxs) == len(ds)
@@ -149,10 +149,10 @@ def main():
                 if corpus[inx] not in data['positive'] and corpus[inx] != query:
                     filtered_inx.append(inx)
 
-            if len(filtered_inx) > numb_hard_negatives_per_line:
+            if len(filtered_inx) > total_negatives_per_line:
                 #Sample hard negatives
-                #numb_hard_negatives_per_line from first from top 5% (Hardest negatives)
-                #numb_hard_negatives_per_line from 5%-25% (easier negatives)
+                #total_negatives_per_line from first from top 5% (Hardest negatives)
+                #total_negatives_per_line from 5%-25% (easier negatives)
                 #numb_easy_negatives_per_line from 25%-100% (easiest negatives)
                 filtered_inx=random.sample(filtered_inx[:t5], numb_HN)+random.sample(filtered_inx[t5:t25], numb_HN) + random.sample(filtered_inx[t25:total_to_retreive], 3*numb_HN)
             HNs.append([corpus[inx] for inx in filtered_inx])
@@ -163,12 +163,10 @@ def main():
     
     #get the number of hard and easy negatives to mine per line
     total_negatives_per_line=int(argsp.numb_HN_per_line)   
-    numb_hard_negatives_per_line=math.ceil(total_negatives_per_line*float(argsp.fraction_HN_to_semiHN))
-    numb_easy_negatives_per_line=total_negatives_per_line-2*numb_hard_negatives_per_line
 
     #get the hard negatives
-    train_dataset=get_HNs(index,model,train_dataset,numb_hard_negatives_per_line=total_negatives_per_line)
-    eval_dataset=get_HNs(index,model,eval_dataset,numb_hard_negatives_per_line=total_negatives_per_line)
+    train_dataset=get_HNs(index,model,train_dataset,total_negatives_per_line=total_negatives_per_line)
+    eval_dataset=get_HNs(index,model,eval_dataset,total_negatives_per_line=total_negatives_per_line)
  
     #save the dataset with hard negatives
     #TODO this is very ineffecient, should have a lookup table and numbers for each positive and negative
