@@ -12,24 +12,26 @@ TEST SET, after finetuned
 cosine_ndcg@10    : 0.74
 cosine_mrr@10     : 0.69
 cosine_map@100    : 0.70
-cosine_accuracy@1 : 0.61
+cosine_accuracy@1 : 0.60
 cosine_accuracy@5 : 0.81
 cosine_accuracy@10: 0.87
 
-Script execution time: 4 minutes and 48.92 seconds
+Script execution time: 8 minutes and 32.83 seconds
 
 --RERANKING--- rerank_with_chromadb.py; model:stella_en_400M_v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
 Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1559 out of 2641 for accuracy of 59.03 %
-self.stats['correct@5'] 2090 out of 2641 for accuracy of 79.14 %
-self.stats['correct@10'] 2233 out of 2641 for accuracy of 84.55 %
+self.stats['correct@1'] 1586 out of 2641 for accuracy of 60.05 %
+self.stats['correct@5'] 2157 out of 2641 for accuracy of 81.67 %
+self.stats['correct@10'] 2294 out of 2641 for accuracy of 86.86 %
 Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1841 out of 2641 for accuracy of 69.71 %
-self.stats['correct@5'] 2314 out of 2641 for accuracy of 87.62 %
-self.stats['correct@10'] 2396 out of 2641 for accuracy of 90.72 %
-Script execution time: 7 minutes and 23.78 seconds
+self.stats['correct@1'] 1843 out of 2641 for accuracy of 69.78 %
+self.stats['correct@5'] 2341 out of 2641 for accuracy of 88.64 %
+self.stats['correct@10'] 2432 out of 2641 for accuracy of 92.09 %
+Script execution time: 7 minutes and 5.23 seconds
 
-Using anchor, positive, negative dataset
+--Mining Hard Negatives Corpus using chromadb; model:stella_en_400M_v5, localmodel:y, loss function:MultipleNegativesRankingLoss--
+Script execution time: 1 minutes and 24.82 seconds
+
 --FINETUNING -- finetunebiencoder.py; model:stella_en_400M_v5, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:128
 TEST SET, NOT finetuned
 cosine_ndcg@10    : 0.57
@@ -40,23 +42,56 @@ cosine_accuracy@5 : 0.63
 cosine_accuracy@10: 0.71
 
 TEST SET, after finetuned
-cosine_ndcg@10    : 0.94
-cosine_mrr@10     : 0.93
-cosine_map@100    : 0.93
-cosine_accuracy@1 : 0.89
-cosine_accuracy@5 : 0.98
-cosine_accuracy@10: 0.99
+cosine_ndcg@10    : 0.73
+cosine_mrr@10     : 0.69
+cosine_map@100    : 0.70
+cosine_accuracy@1 : 0.61
+cosine_accuracy@5 : 0.81
+cosine_accuracy@10: 0.86
 
-Script execution time: 113 minutes and 25.27 seconds
+Script execution time: 171 minutes and 31.64 seconds
 
 --RERANKING--- rerank_with_chromadb.py; model:stella_en_400M_v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
 Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 2350 out of 2641 for accuracy of 88.98 %
-self.stats['correct@5'] 2588 out of 2641 for accuracy of 97.99 %
-self.stats['correct@10'] 2597 out of 2641 for accuracy of 98.33 %
+self.stats['correct@1'] 1600 out of 2641 for accuracy of 60.58 %
+self.stats['correct@5'] 2142 out of 2641 for accuracy of 81.11 %
+self.stats['correct@10'] 2277 out of 2641 for accuracy of 86.22 %
 Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1910 out of 2641 for accuracy of 72.32 %
-self.stats['correct@5'] 2412 out of 2641 for accuracy of 91.33 %
-self.stats['correct@10'] 2509 out of 2641 for accuracy of 95.00 %
-Script execution time: 7 minutes and 33.85 seconds
+self.stats['correct@1'] 1849 out of 2641 for accuracy of 70.01 %
+self.stats['correct@5'] 2334 out of 2641 for accuracy of 88.38 %
+self.stats['correct@10'] 2423 out of 2641 for accuracy of 91.75 %
+Script execution time: 6 minutes and 55.36 seconds
+
+--Mining Hard Negatives Corpus using chromadb; model:stella_en_400M_v5, localmodel:y, loss function:MultipleNegativesRankingLoss--
+Script execution time: 1 minutes and 19.95 seconds
+
+--FINETUNING -- finetunebiencoder.py; model:stella_en_400M_v5, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:128
+TEST SET, NOT finetuned
+cosine_ndcg@10    : 0.57
+cosine_mrr@10     : 0.52
+cosine_map@100    : 0.53
+cosine_accuracy@1 : 0.43
+cosine_accuracy@5 : 0.63
+cosine_accuracy@10: 0.71
+
+TEST SET, after finetuned
+cosine_ndcg@10    : 0.73
+cosine_mrr@10     : 0.69
+cosine_map@100    : 0.69
+cosine_accuracy@1 : 0.60
+cosine_accuracy@5 : 0.80
+cosine_accuracy@10: 0.85
+
+Script execution time: 172 minutes and 26.70 seconds
+
+--RERANKING--- rerank_with_chromadb.py; model:stella_en_400M_v5, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
+Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1581 out of 2641 for accuracy of 59.86 %
+self.stats['correct@5'] 2124 out of 2641 for accuracy of 80.42 %
+self.stats['correct@10'] 2256 out of 2641 for accuracy of 85.42 %
+Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1841 out of 2641 for accuracy of 69.71 %
+self.stats['correct@5'] 2334 out of 2641 for accuracy of 88.38 %
+self.stats['correct@10'] 2422 out of 2641 for accuracy of 91.71 %
+Script execution time: 7 minutes and 2.30 seconds
 

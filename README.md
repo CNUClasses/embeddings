@@ -42,7 +42,8 @@ see requirements.txt<br>
 <mark> 1. Train model A (biencoder) on anchor-positive pairs with MNRL.<br>
 2. Offline mine hard negatives (HN) using model A.<br>
 3.  Retrain model A with expanded dataset including HNs with MNRL.<br>
-<mark> Loop on steps 2 and 3 to get better hard negatives and a better model.</mark><br>
+
+<mark> Note: Experimental results using 3 models indicate that looping on steps 2 and 3 to get better hard negatives and a better model yields no improvement.</mark><br>
 
 ## Training Cross Encoder (reranker)
 Cross-encoders serve as a second stage in RAG pipelines for reranking results. They provide higher accuracy than bi-encoders.  They must be fine tuned if they are going to be used with a fine tuned biencoder as part of a 2 stage RAG system.<br>

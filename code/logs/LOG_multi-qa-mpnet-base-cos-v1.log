@@ -16,20 +16,22 @@ cosine_accuracy@1 : 0.54
 cosine_accuracy@5 : 0.77
 cosine_accuracy@10: 0.83
 
-Script execution time: 7 minutes and 42.51 seconds
+Script execution time: 7 minutes and 40.59 seconds
 
 --RERANKING--- rerank_with_chromadb.py; model:multi-qa-mpnet-base-cos-v1, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
 Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1424 out of 2641 for accuracy of 53.92 %
+self.stats['correct@1'] 1418 out of 2641 for accuracy of 53.69 %
 self.stats['correct@5'] 2032 out of 2641 for accuracy of 76.94 %
-self.stats['correct@10'] 2197 out of 2641 for accuracy of 83.19 %
+self.stats['correct@10'] 2201 out of 2641 for accuracy of 83.34 %
 Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1840 out of 2641 for accuracy of 69.67 %
-self.stats['correct@5'] 2318 out of 2641 for accuracy of 87.77 %
-self.stats['correct@10'] 2400 out of 2641 for accuracy of 90.87 %
-Script execution time: 6 minutes and 54.03 seconds
+self.stats['correct@1'] 1839 out of 2641 for accuracy of 69.63 %
+self.stats['correct@5'] 2323 out of 2641 for accuracy of 87.96 %
+self.stats['correct@10'] 2406 out of 2641 for accuracy of 91.10 %
+Script execution time: 8 minutes and 4.64 seconds
 
-Using anchor, positive, negative dataset
+--Mining Hard Negatives Corpus using chromadb; model:multi-qa-mpnet-base-cos-v1, localmodel:y, loss function:MultipleNegativesRankingLoss--
+Script execution time: 0 minutes and 39.48 seconds
+
 --FINETUNING -- finetunebiencoder.py; model:multi-qa-mpnet-base-cos-v1, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:32
 TEST SET, NOT finetuned
 cosine_ndcg@10    : 0.52
@@ -40,23 +42,56 @@ cosine_accuracy@5 : 0.58
 cosine_accuracy@10: 0.66
 
 TEST SET, after finetuned
-cosine_ndcg@10    : 0.88
-cosine_mrr@10     : 0.85
-cosine_map@100    : 0.85
-cosine_accuracy@1 : 0.77
-cosine_accuracy@5 : 0.95
-cosine_accuracy@10: 0.97
+cosine_ndcg@10    : 0.71
+cosine_mrr@10     : 0.67
+cosine_map@100    : 0.67
+cosine_accuracy@1 : 0.58
+cosine_accuracy@5 : 0.79
+cosine_accuracy@10: 0.85
 
-Script execution time: 314 minutes and 1.46 seconds
+Script execution time: 199 minutes and 1.05 seconds
 
 --RERANKING--- rerank_with_chromadb.py; model:multi-qa-mpnet-base-cos-v1, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
 Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 2061 out of 2641 for accuracy of 78.04 %
-self.stats['correct@5'] 2526 out of 2641 for accuracy of 95.65 %
-self.stats['correct@10'] 2580 out of 2641 for accuracy of 97.69 %
+self.stats['correct@1'] 1511 out of 2641 for accuracy of 57.21 %
+self.stats['correct@5'] 2101 out of 2641 for accuracy of 79.55 %
+self.stats['correct@10'] 2238 out of 2641 for accuracy of 84.74 %
 Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
-self.stats['correct@1'] 1883 out of 2641 for accuracy of 71.30 %
-self.stats['correct@5'] 2376 out of 2641 for accuracy of 89.97 %
-self.stats['correct@10'] 2487 out of 2641 for accuracy of 94.17 %
-Script execution time: 6 minutes and 53.47 seconds
+self.stats['correct@1'] 1836 out of 2641 for accuracy of 69.52 %
+self.stats['correct@5'] 2320 out of 2641 for accuracy of 87.85 %
+self.stats['correct@10'] 2405 out of 2641 for accuracy of 91.06 %
+Script execution time: 8 minutes and 1.58 seconds
+
+--Mining Hard Negatives Corpus using chromadb; model:multi-qa-mpnet-base-cos-v1, localmodel:y, loss function:MultipleNegativesRankingLoss--
+Script execution time: 0 minutes and 39.89 seconds
+
+--FINETUNING -- finetunebiencoder.py; model:multi-qa-mpnet-base-cos-v1, loss function:MultipleNegativesRankingLoss, num_epochs:2, batch_size:32
+TEST SET, NOT finetuned
+cosine_ndcg@10    : 0.52
+cosine_mrr@10     : 0.47
+cosine_map@100    : 0.48
+cosine_accuracy@1 : 0.38
+cosine_accuracy@5 : 0.58
+cosine_accuracy@10: 0.66
+
+TEST SET, after finetuned
+cosine_ndcg@10    : 0.71
+cosine_mrr@10     : 0.66
+cosine_map@100    : 0.67
+cosine_accuracy@1 : 0.57
+cosine_accuracy@5 : 0.79
+cosine_accuracy@10: 0.85
+
+Script execution time: 194 minutes and 22.18 seconds
+
+--RERANKING--- rerank_with_chromadb.py; model:multi-qa-mpnet-base-cos-v1, reranker:models/FLAGfinetuned, localmodel:y, loss function:MultipleNegativesRankingLoss
+Statistics for MultipleNegativesRankingLoss loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1500 out of 2641 for accuracy of 56.80 %
+self.stats['correct@5'] 2092 out of 2641 for accuracy of 79.21 %
+self.stats['correct@10'] 2246 out of 2641 for accuracy of 85.04 %
+Statistics for MultipleNegativesRankingLoss reranked loss and models/FLAGfinetuned crossencoder
+self.stats['correct@1'] 1846 out of 2641 for accuracy of 69.90 %
+self.stats['correct@5'] 2328 out of 2641 for accuracy of 88.15 %
+self.stats['correct@10'] 2420 out of 2641 for accuracy of 91.63 %
+Script execution time: 8 minutes and 0.21 seconds
 

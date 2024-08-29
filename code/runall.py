@@ -20,14 +20,14 @@ import utils as ut
 # num_epochs='2'
 # batch_size='32'
 
-# modelname = "dunzhang/stella_en_400M_v5"  #max_seq_length': 512
-# batch_size='128'
-# num_epochs='2'
-
-modelname='sentence-transformers/msmarco-distilbert-cos-v5'  #max_seq_length': 384
+modelname = "dunzhang/stella_en_400M_v5"  #max_seq_length': 512
+batch_size='128'
 num_epochs='2'
-# num_epochs='1'
-batch_size='128'  #can get away with 256 on MNRL but Triplet is 128 only
+
+# modelname='sentence-transformers/msmarco-distilbert-cos-v5'  #max_seq_length': 384
+# num_epochs='2'
+# # num_epochs='1'
+# batch_size='128'  #can get away with 256 on MNRL but Triplet is 128 only
  
 #rank is on https://huggingface.co/spaces/mteb/leaderboard, select the ReRanking Tab
 # crossencoder='cross-encoder/ms-marco-MiniLM-L-12-v2'  #(BERT) finetuned does not improve performance 
@@ -77,8 +77,7 @@ def main():
         #finetune from scratch, multiple negatives ranking loss with anchor positives and negatives
         ('finetuneBiEncoder.py', ['--mode', 'a', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','MultipleNegativesRankingLoss','--use_HN_dataset','Y']),
         ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','MultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
-
-    
+   
         #CachedMultipleNegativesRankingLoss- increase batch size but slower than MultipleNegativesRankingLoss
         # ('finetuneBiEncoder.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','CachedMultipleNegativesRankingLoss']),
         # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','CachedMultipleNegativesRankingLoss','--modelname', modelname,'--crossencoder',crossencoder]),
@@ -89,7 +88,6 @@ def main():
 
         # ('test_GISTEmbedLoss.py', ['--mode', 'w', '--num_epochs',num_epochs,'--resume','n', '--modelname', modelname,'--batch_size', batch_size,'--loss','GISTEmbedLoss']),
         # ('rerank_with_chromadb.py', ['--mode', 'a', '--localmodel', 'y','--loss','GISTEmbedLoss','--modelname', modelname,'--crossencoder',crossencoder]),
-
 
         # #circle loss (all collapse to 1-ish cluster)
         # # ('finetuneBiEncoder.py', [ '--mode', 'a','--num_epochs',num_epochs,'--resume','y','--modelname', modelname,'--batch_size', batch_size, '--loss','CircleLoss']),

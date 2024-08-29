@@ -112,13 +112,13 @@ def main():
         #original
         ut.login_hf()   #need this because GPU server keeps going down and scripts fail
         print(f"Loading original model {argsp.modelname}")
-        model = SentenceTransformer(argsp.modelname)
+        model = SentenceTransformer(argsp.modelname,trust_remote_code=True)
         # model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:2" if torch.cuda.is_available() else "cpu",)
         # model = SentenceTransformer(argsp.modelname,trust_remote_code=True,device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
     else:
         #finetuned
         print(f"Loading finetuned model {modelname}")
-        model = SentenceTransformer(f"models/{modelname}/{save_location}/final")
+        model = SentenceTransformer(f"models/{modelname}/{save_location}/final",trust_remote_code=True)
 
         # model = SentenceTransformer(f"models/{modelname}/{save_location}/final",device=f"cuda:2" if torch.cuda.is_available() else "cpu",)
         # model = SentenceTransformer(f"models/{modelname}/{save_location}/final",device=f"cuda:{ut.get_free_gpu()}" if torch.cuda.is_available() else "cpu",)
